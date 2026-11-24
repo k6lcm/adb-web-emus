@@ -136,6 +136,16 @@ function createWindow(app) {
 
   const iframe = $('iframe', el);
   iframe.title = app.name;
+  if (app.video) {
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.allowFullscreen = true;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+    $('[data-action="minimize"]', el).hidden = true;
+    const reload = $('[data-action="reload"]', el);
+    reload.title = 'Reload video';
+    reload.setAttribute('aria-label', 'Reload video');
+    el.classList.add('video-window');
+  }
   iframe.src = app.path;
 
   const saved = loadGeom(app.id);
@@ -166,7 +176,7 @@ function createWindow(app) {
     reload: () => {
       try { iframe.contentWindow.location.reload(); } catch { iframe.src = app.path; }
     },
-    newtab: () => window.open(new URL(app.path, location.href), '_blank', 'noopener'),
+    newtab: () => window.open(new URL(app.externalUrl || app.path, location.href), '_blank', 'noopener'),
   };
   el.querySelectorAll('[data-action]').forEach((b) =>
     b.addEventListener('click', () => actions[b.dataset.action]()));
@@ -492,6 +502,34 @@ function setupSystemMenu() {
     b.addEventListener('click', () => { closeSystemMenu(); commands[b.dataset.cmd](); }));
 }
 
+function watchVideo(machine, video) {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(video.id)) return;
+  $('#about-dialog').close();
+  // Reuse one player window. Closing it destroys the iframe and stops playback.
+  const previous = state.windows.get('video-player');
+  if (previous) closeWindow(previous);
+  const app = {
+    id: 'video-player',
+    name: video.title,
+    icon: machine.icon,
+    video: true,
+    path: `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&playsinline=1&rel=0`,
+    externalUrl: `https://www.youtube.com/watch?v=${video.id}`,
+    window: { width: 960, height: 600 },
+  };
+  const w = createWindow(app);
+  const fallback = document.createElement('a');
+  fallback.className = 'video-fallback';
+  fallback.href = app.externalUrl;
+  fallback.target = '_blank';
+  fallback.rel = 'noopener';
+  fallback.textContent = 'Watch on YouTube ↗';
+  $('.window-body', w.el).append(fallback);
+  state.windows.set(app.id, w);
+  focusWindow(w);
+  updateDockAutohide();
+}
+
 async function showAbout() {
   const list = $('#about-apps');
   list.replaceChildren();
@@ -504,6 +542,33 @@ async function showAbout() {
     const info = document.createElement('small');
     info.textContent = app.description ?? '';
     meta.append(name, info);
+    if (app.videos?.length) {
+      const section = document.createElement('details');
+      section.className = 'machine-videos';
+      const heading = document.createElement('summary');
+      heading.className = 'video-heading';
+      heading.textContent = `Watch videos (${app.videos.length})`;
+      const videos = document.createElement('ul');
+      videos.className = 'video-list';
+      for (const video of app.videos) {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = `https://www.youtube.com/watch?v=${video.id}`;
+        link.textContent = video.title;
+        link.title = 'Watch in desktop';
+        link.addEventListener('click', (e) => {
+          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          watchVideo(app, video);
+        });
+        const creator = document.createElement('small');
+        creator.textContent = video.channel;
+        item.append(link, creator);
+        videos.append(item);
+      }
+      section.append(heading, videos);
+      meta.append(section);
+    }
     li.append(iconImg(app, 32), meta);
     list.append(li);
     // sync-info.json is written by tools/sync-app.sh and records the build source.
@@ -534,6 +599,7 @@ function startClock() {
 }
 
 function updateHash() {
+  if (state.focused?.app.video) return;
   const id = state.focused?.app.id;
   const want = id ? '#/' + id : '';
   if (location.hash !== want) {

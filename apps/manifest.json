@@ -14,7 +14,29 @@
       "description": "Designed after Bill's Lobo Systems MAX-80 (Z80)",
       "icon": "icons/max80.svg",
       "path": "apps/max80/",
-      "window": { "width": 1100, "height": 820 }
+      "window": { "width": 1100, "height": 820 },
+      "videos": [
+        {
+          "id": "mzohxCT8kEo",
+          "title": "The Lobo MAX-80: A cool computer that came and went in a flash.",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "IwndIurWfq0",
+          "title": "Fixing everything wrong with the Lobo MAX-80",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "HRYP2Dil1ic",
+          "title": "We gave the MAX-80 a new OS, games, demos and more",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "EX2FxeFa4jU",
+          "title": "The man who turned down Big Tech",
+          "channel": "Levi's Digital Voyage"
+        }
+      ]
     },
     {
       "id": "plexus",
@@ -22,7 +44,54 @@
       "description": "Plexus P/20 UNIX server (dual Motorola 68010), by Sprite_tm",
       "icon": "icons/plexus.svg",
       "path": "apps/plexus/",
-      "window": { "width": 900, "height": 650 }
+      "window": { "width": 900, "height": 650 },
+      "videos": [
+        {
+          "id": "iltZYXg5hZw",
+          "title": "What is this rare multi-user UNIX workstation? (Plexus P/20)",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "lCPZAYvk940",
+          "title": "First power up of the Plexus P/20 dual processor UNIX system",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "_IrxvDE6Fyo",
+          "title": "Booting UNIX on the Plexus P/20 didn't go to plan",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "Ve1SuuRkx_o",
+          "title": "We made some unbelievable discoveries about this Plexus P/20!",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "10b50ECWXLk",
+          "title": "The Plexus P/20 is now fully operational!",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "lBprWU9cHXs",
+          "title": "The Plexus P/20: A Fantastic Journey (Supercut)",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "ft7AJkWMkG4",
+          "title": "Plexus P/20: This is the end.",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "se-vbapuX9s",
+          "title": "Plexus P/20: One more thing",
+          "channel": "Adrian's Digital Basement ]["
+        },
+        {
+          "id": "BzoRsl4cV7U",
+          "title": "Turbo Mail Call #9: Plexus news, USB-C upgrades, Atari ST emulation in 1992 and more",
+          "channel": "Adrian's Digital Basement ]["
+        }
+      ]
     }
   ]
 }

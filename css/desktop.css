@@ -411,7 +411,8 @@ body.dock-autohidden #dock-reveal { display: block; }
 /* ---------- About dialog ---------- */
 
 #about-dialog {
-  width: min(400px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
   padding: 0;
   border: 0;
   border-radius: 14px;
@@ -460,14 +461,14 @@ body.dock-autohidden #dock-reveal { display: block; }
   user-select: text;
 }
 
-.about-list li {
+.about-list > li {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
 }
 
-.about-list li + li { border-top: 1px solid rgba(0, 0, 0, 0.3); }
+.about-list > li + li { border-top: 1px solid rgba(0, 0, 0, 0.3); }
 .about-list img { width: 32px; height: 32px; flex: none; }
 .about-list .meta { display: flex; flex-direction: column; min-width: 0; }
 .about-list .meta b { font-weight: 600; }
@@ -493,3 +494,16 @@ body.mobile .headerbar { flex-basis: 42px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Videos open inside the desktop with a direct YouTube fallback. */
+.machine-videos { margin-top: 12px; }
+.video-heading { cursor: pointer; font-size: 12px; font-weight: 700; color: #9fcaff; }
+.video-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.video-list li { margin: 0 0 12px; }
+.video-list li:last-child { margin-bottom: 0; }
+.video-list a { display: block; line-height: 1.4; }
+.video-list small { display: block; margin-top: 2px; }
+.video-window .window-body { display: flex; flex-direction: column; }
+.video-window .window-body iframe { position: static; flex: 1; min-height: 0; height: auto; }
+.video-fallback { flex: none; padding: 8px 12px; background: #242429; color: #9fcaff; font-size: 12px; }
+.video-window [hidden] { display: none; }
