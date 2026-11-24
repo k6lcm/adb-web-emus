@@ -28,12 +28,7 @@ html, body {
 body {
   font: 14px/1.4 var(--font);
   color: var(--fg);
-  background:
-    radial-gradient(1100px 800px at 12% 88%, rgba(53, 132, 228, 0.55), transparent 62%),
-    radial-gradient(900px 700px at 88% 18%, rgba(145, 65, 172, 0.42), transparent 60%),
-    radial-gradient(700px 520px at 62% 78%, rgba(38, 162, 105, 0.22), transparent 62%),
-    linear-gradient(160deg, #1b2038 0%, #12151f 100%);
-  background-attachment: fixed;
+  background: #10051d;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   -webkit-user-select: none;
@@ -102,6 +97,7 @@ button.topbar-pill.active { background: rgba(255, 255, 255, 0.25); }
 #desktop {
   position: fixed;
   inset: var(--topbar-h) 0 0 0;
+  background: #10051d url("images/adb-wallpaper.png") center / contain no-repeat;
 }
 
 #desktop-icons {
