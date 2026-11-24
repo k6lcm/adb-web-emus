@@ -11,7 +11,7 @@
     {
       "id": "max80",
       "name": "Lobo MAX-80",
-      "description": "Lobo Systems MAX-80 (Z80)",
+      "description": "Designed after Bill's Lobo Systems MAX-80 (Z80)",
       "icon": "icons/max80.svg",
       "path": "apps/max80/",
       "window": { "width": 1100, "height": 820 }
