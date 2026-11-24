@@ -1,19 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="case" x2="0" y2="1">
-      <stop stop-color="#e1ddca"/>
-      <stop offset="1" stop-color="#a8a591"/>
-    </linearGradient>
-  </defs>
-  <rect x="22" y="7" width="84" height="110" rx="7" fill="url(#case)" stroke="#77796c" stroke-width="2"/>
-  <rect x="29" y="15" width="70" height="21" rx="2" fill="#29383d"/>
-  <text x="64" y="29" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#e9e8d8">PLEXUS</text>
-  <rect x="33" y="44" width="62" height="16" rx="2" fill="#494c48"/>
-  <path d="M39 52h46" stroke="#151d1d" stroke-width="3"/>
-  <circle cx="90" cy="65" r="2" fill="#79c45a"/>
-  <g stroke="#747a70" stroke-width="2">
-    <path d="M35 77h58M35 82h58M35 87h58M35 92h58"/>
-  </g>
-  <text x="64" y="108" text-anchor="middle" font-family="monospace" font-size="10" fill="#29383d">P/20 UNIX</text>
-  <path d="M30 118v5h13v-5m42 0v5h13v-5" fill="#343d39"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Plexus P/20</title>
+  <desc id="desc">Ivory floor-standing UNIX cabinet with two vertical drives, embossed Plexus lettering and a black status panel.</desc>
+  <defs><linearGradient id="shell" x1="0" y1="0" x2="0.3" y2="1"><stop stop-color="#efedda"/><stop offset="1" stop-color="#bbbba5"/></linearGradient><linearGradient id="side" x1="0" y1="0" x2="0.3" y2="1"><stop stop-color="#c6c7b3"/><stop offset="1" stop-color="#909987"/></linearGradient><linearGradient id="bay" x1="0" y1="0" x2="0.3" y2="1"><stop stop-color="#3c4545"/><stop offset="1" stop-color="#151e24"/></linearGradient></defs>
+  
+<ellipse cx="83" cy="148" rx="48" ry="6" fill="#07101c" opacity=".24"/>
+<path d="M38 28L61 10l65 5-16 20z" fill="#f0efde" stroke="#dedfcd"/>
+<path d="M38 28l22-16v123l-22 10z" fill="url(#side)" stroke="#858e7f" stroke-width=".8"/>
+<path d="M59 12l67 3v126l-67 5z" fill="url(#shell)" stroke="#a6ab97" stroke-width="1"/>
+<path d="M63 20l58 3v46l-58-1z" fill="#818977"/>
+<path d="M67 24l50 2v38l-50-1z" fill="url(#bay)" stroke="#27332f"/>
+<g fill="#20292d" stroke="#555e58" stroke-width=".6">
+<path d="M71 27h19v33H71z"/><path d="M94 28h19v33H94z"/>
+</g>
+<path d="M82 30v25m21-24v26" stroke="#090f15" stroke-width="2"/>
+<path d="M77 42h10v4H77zm22-11h10v4H99z" fill="#626c68" stroke="#151e23" stroke-width=".8"/>
+<circle cx="74" cy="31" r="1" fill="#b85847"/>
+<circle cx="108" cy="57" r="1" fill="#b85847"/>
+<path d="M60 73l65 1" stroke="#7e8877" stroke-width="1.5"/>
+<rect x="109" y="80" width="10" height="33" rx="1.4" fill="#26302e"/>
+<text x="114" y="86" text-anchor="middle" font-family="Arial,sans-serif" font-size="3.5" fill="#e8e9d5">P/20</text>
+<path d="M112 91h2m-2 4h2m-2 4h2m-2 4h2" stroke="#a6b8a3" stroke-width="1"/>
+<circle cx="114" cy="109" r="2" fill="#929d8e" stroke="#18251e" stroke-width=".6"/>
+<g transform="translate(83 136) rotate(-90)">
+<text x="0" y="0" font-family="Arial,sans-serif" font-size="15" font-weight="bold" letter-spacing="1" fill="none" stroke="#919b86" stroke-width=".7">PLEXUS</text>
+<text x=".7" y=".7" font-family="Arial,sans-serif" font-size="15" font-weight="bold" letter-spacing="1" fill="none" stroke="#f3f0dc" stroke-width=".7">PLEXUS</text>
+</g>
+<path d="M60 143l65-5v5l-65 5zM38 142l21 2v5l-21-2z" fill="#303c35"/>
+
 </svg>
