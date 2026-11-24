@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check every app in the manifest is present
+        run: |
+          jq -e '.apps | length > 0' apps/manifest.json > /dev/null
+          status=0
+          for p in $(jq -r '.apps[].path' apps/manifest.json); do
+            if [ ! -f "$p/index.html" ]; then echo "::error::missing $p/index.html"; status=1; fi
+          done
+          for i in $(jq -r '.apps[].icon' apps/manifest.json); do
+            if [ ! -f "$i" ]; then echo "::error::missing icon $i"; status=1; fi
+          done
+          exit $status
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

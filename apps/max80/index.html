@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lobo MAX-80 Emulator</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app-shell" class="app-shell">
+    <!-- Top Control Bar -->
+    <header class="topbar" role="banner">
+      <div class="topbar-brand">
+        <div class="brand-logo" aria-hidden="true">MAX-80</div>
+        <div class="brand-meta">
+          <span class="brand-subtitle">Lobo Systems</span>
+          <span id="power-badge" class="status-badge status-off" aria-live="polite">
+            <span class="status-dot"></span>
+            <span id="power-badge-text">OFF</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="topbar-controls" role="toolbar" aria-label="Emulator controls">
+        <div class="control-group">
+          <button id="btn-power" type="button" class="btn btn-primary" title="Power On or Power Off the MAX-80">
+            <span class="btn-icon" aria-hidden="true">&#x23FB;</span>
+            <span id="btn-power-text">Power</span>
+          </button>
+          <button id="btn-restart" type="button" class="btn" title="Restart MAX-80 (Alt+R)" disabled>
+            <span class="btn-icon" aria-hidden="true">&#x21BB;</span>
+            <span>Restart</span>
+          </button>
+          <button id="btn-fast" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle unthrottled Fast mode (Alt+F)">
+            <span class="btn-icon" aria-hidden="true">&#x26A1;</span>
+            <span>Fast</span>
+          </button>
+        </div>
+
+        <div class="control-divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <button id="btn-library" type="button" class="btn btn-accent" title="Browse built-in disk and application library">
+            <span class="btn-icon" aria-hidden="true">&#x1F4BF;</span>
+            <span>Library</span>
+            <span id="library-count-badge" class="pill-count" hidden>0</span>
+          </button>
+          <button id="btn-paste" type="button" class="btn" title="Paste text into the MAX-80 keyboard queue">
+            <span class="btn-icon" aria-hidden="true">&#x2398;</span>
+            <span>Paste</span>
+          </button>
+          <button id="btn-osk" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle on-screen keyboard &amp; arrow keys (Alt+K)">
+            <span class="btn-icon" aria-hidden="true">&#x2328;</span>
+            <span>Keys</span>
+          </button>
+        </div>
+
+        <div class="control-divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <button id="btn-mute" type="button" class="btn btn-toggle" aria-pressed="false" title="Mute / Unmute beeper audio">
+            <span id="btn-mute-icon" class="btn-icon" aria-hidden="true">&#x1F50A;</span>
+            <span id="btn-mute-text">Sound</span>
+          </button>
+          <button id="btn-fullscreen" type="button" class="btn" title="Toggle fullscreen CRT display">
+            <span class="btn-icon" aria-hidden="true">&#x26F6;</span>
+            <span>Fullscreen</span>
+          </button>
+          <button id="btn-settings" type="button" class="btn" title="DIP switches, memory, timing &amp; drive settings (Alt+,)">
+            <span class="btn-icon" aria-hidden="true">&#x2699;</span>
+            <span>Settings</span>
+          </button>
+          <button id="btn-about" type="button" class="btn btn-icon-only" title="About &amp; Keyboard Shortcuts" aria-label="About and Keyboard Shortcuts">
+            <span aria-hidden="true">?</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main CRT Screen Viewport -->
+    <main class="viewport-area">
+      <div id="screen-container" class="screen-container" tabindex="-1">
+        <div class="crt-bezel">
+          <canvas id="screen-canvas" width="640" height="300" aria-label="MAX-80 CRT Display"></canvas>
+          <div id="screen-drop-overlay" class="drop-overlay" hidden>
+            <div class="drop-overlay-box">
+              <div class="drop-overlay-title">Drop .imd to insert in Drive A:</div>
+              <div class="drop-overlay-sub">Release file to mount disk image</div>
+            </div>
+          </div>
+        </div>
+        <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+      </div>
+    </main>
+
+    <!-- On-Screen Keyboard & Arrow Pad -->
+    <section id="osk-dock" class="osk-dock" aria-label="On-screen MAX-80 keyboard and arrow keys" hidden></section>
+
+    <!-- Floppy Drives Strip (A: to D:) -->
+    <section id="drives-strip" class="drives-strip" aria-label="Floppy disk drives A: through D:">
+      <!-- Drive A: -->
+      <div id="drive-card-0" class="drive-card" data-drive="0">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">A:</span>
+            <span id="drive-led-0" class="drive-led" title="Drive A: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-kind-0" class="badge badge-kind" hidden></span>
+            <span id="drive-three-0" class="badge badge-three" hidden title="3.5-inch (300 rpm) mode enabled">3.5&quot;</span>
+            <span id="drive-mod-0" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-0" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-0" type="button" class="btn btn-xs" title="Insert .imd disk image into A: (Alt+1)">Insert</button>
+          <button id="drive-blank-0" type="button" class="btn btn-xs" title="Insert unformatted blank disk into A:">Blank</button>
+          <button id="drive-save-0" type="button" class="btn btn-xs" title="Download current A: disk image as .imd" disabled>Save As</button>
+          <button id="drive-eject-0" type="button" class="btn btn-xs" title="Eject disk from A:" disabled>Eject</button>
+          <button id="drive-wp-0" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive A:">WP</button>
+        </div>
+        <input id="drive-file-0" type="file" accept=".imd,.IMD" class="sr-only" tabindex="-1">
+      </div>
+
+      <!-- Drive B: -->
+      <div id="drive-card-1" class="drive-card" data-drive="1">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">B:</span>
+            <span id="drive-led-1" class="drive-led" title="Drive B: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-kind-1" class="badge badge-kind" hidden></span>
+            <span id="drive-three-1" class="badge badge-three" hidden title="3.5-inch (300 rpm) mode enabled">3.5&quot;</span>
+            <span id="drive-mod-1" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-1" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-1" type="button" class="btn btn-xs" title="Insert .imd disk image into B: (Alt+2)">Insert</button>
+          <button id="drive-blank-1" type="button" class="btn btn-xs" title="Insert unformatted blank disk into B:">Blank</button>
+          <button id="drive-save-1" type="button" class="btn btn-xs" title="Download current B: disk image as .imd" disabled>Save As</button>
+          <button id="drive-eject-1" type="button" class="btn btn-xs" title="Eject disk from B:" disabled>Eject</button>
+          <button id="drive-wp-1" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive B:">WP</button>
+        </div>
+        <input id="drive-file-1" type="file" accept=".imd,.IMD" class="sr-only" tabindex="-1">
+      </div>
+
+      <!-- Drive C: -->
+      <div id="drive-card-2" class="drive-card" data-drive="2">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">C:</span>
+            <span id="drive-led-2" class="drive-led" title="Drive C: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-kind-2" class="badge badge-kind" hidden></span>
+            <span id="drive-three-2" class="badge badge-three" hidden title="3.5-inch (300 rpm) mode enabled">3.5&quot;</span>
+            <span id="drive-mod-2" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-2" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-2" type="button" class="btn btn-xs" title="Insert .imd disk image into C: (Alt+3)">Insert</button>
+          <button id="drive-blank-2" type="button" class="btn btn-xs" title="Insert unformatted blank disk into C:">Blank</button>
+          <button id="drive-save-2" type="button" class="btn btn-xs" title="Download current C: disk image as .imd" disabled>Save As</button>
+          <button id="drive-eject-2" type="button" class="btn btn-xs" title="Eject disk from C:" disabled>Eject</button>
+          <button id="drive-wp-2" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive C:">WP</button>
+        </div>
+        <input id="drive-file-2" type="file" accept=".imd,.IMD" class="sr-only" tabindex="-1">
+      </div>
+
+      <!-- Drive D: -->
+      <div id="drive-card-3" class="drive-card" data-drive="3">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">D:</span>
+            <span id="drive-led-3" class="drive-led" title="Drive D: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-kind-3" class="badge badge-kind" hidden></span>
+            <span id="drive-three-3" class="badge badge-three" hidden title="3.5-inch (300 rpm) mode enabled">3.5&quot;</span>
+            <span id="drive-mod-3" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-3" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-3" type="button" class="btn btn-xs" title="Insert .imd disk image into D: (Alt+4)">Insert</button>
+          <button id="drive-blank-3" type="button" class="btn btn-xs" title="Insert unformatted blank disk into D:">Blank</button>
+          <button id="drive-save-3" type="button" class="btn btn-xs" title="Download current D: disk image as .imd" disabled>Save As</button>
+          <button id="drive-eject-3" type="button" class="btn btn-xs" title="Eject disk from D:" disabled>Eject</button>
+          <button id="drive-wp-3" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive D:">WP</button>
+        </div>
+        <input id="drive-file-3" type="file" accept=".imd,.IMD" class="sr-only" tabindex="-1">
+      </div>
+    </section>
+  </div>
+
+  <!-- Built-In Disk & App Library Modal -->
+  <div id="modal-library" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-library-title" hidden>
+    <div class="modal-panel modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-library-title" class="modal-title">Built-In Disk &amp; Application Library</h2>
+          <p class="modal-subtitle">Boot directly with matched DIP switches or mount into Drive A: / B:</p>
+        </div>
+        <button id="btn-close-library" type="button" class="btn-close" aria-label="Close Library">&times;</button>
+      </div>
+      <div class="library-toolbar">
+        <div class="library-search-wrap">
+          <input id="library-search" type="search" class="input-search" placeholder="Search OSes, desktops, languages, games, demos..." autocomplete="off">
+        </div>
+        <div id="library-categories" class="library-categories" role="tablist" aria-label="Disk categories"></div>
+      </div>
+      <div id="library-list" class="library-list" role="region" aria-label="Available disk images"></div>
+      <div class="modal-footer">
+        <span id="library-status-text" class="footer-note">Select a disk image to boot or mount.</span>
+        <button id="btn-library-done" type="button" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title" hidden>
+    <div class="modal-panel modal-md">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-settings-title" class="modal-title">MAX-80 Hardware Settings</h2>
+          <p class="modal-subtitle">Saved automatically in browser storage</p>
+        </div>
+        <button id="btn-close-settings" type="button" class="btn-close" aria-label="Close Settings">&times;</button>
+      </div>
+      <div class="modal-body settings-body">
+        <div id="settings-restart-banner" class="restart-banner" hidden>
+          <div class="restart-banner-text">
+            <strong>Restart required:</strong> Hardware configuration changes (DIP switches, memory, timing, or 3.5&quot; drive mode) take effect on next power cycle.
+          </div>
+          <button id="btn-settings-restart-now" type="button" class="btn btn-primary btn-sm">Restart Now</button>
+        </div>
+
+        <!-- DIP Switches & Boot Device -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Configuration DIP Switches</span>
+            <code id="settings-dip-readout" class="dip-readout">0x02 (00000010)</code>
+          </legend>
+          <div class="settings-row">
+            <label for="settings-boot-device" class="settings-label">Boot Device (SW3..SW1 / bits 2..0)</label>
+            <select id="settings-boot-device" class="input-select"></select>
+          </div>
+          <div class="dip-bank" role="group" aria-label="8 DIP switches (SW8 to SW1)">
+            <label class="dip-switch" for="dip-sw-7">
+              <span class="dip-name">SW8</span>
+              <input id="dip-sw-7" type="checkbox" data-bit="7">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b7</span>
+            </label>
+            <label class="dip-switch" for="dip-sw-6">
+              <span class="dip-name">SW7</span>
+              <input id="dip-sw-6" type="checkbox" data-bit="6">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b6</span>
+            </label>
+            <label class="dip-switch" for="dip-sw-5">
+              <span class="dip-name">SW6</span>
+              <input id="dip-sw-5" type="checkbox" data-bit="5">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b5</span>
+            </label>
+            <label class="dip-switch" for="dip-sw-4">
+              <span class="dip-name">SW5</span>
+              <input id="dip-sw-4" type="checkbox" data-bit="4">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b4</span>
+            </label>
+            <label class="dip-switch" for="dip-sw-3">
+              <span class="dip-name">SW4</span>
+              <input id="dip-sw-3" type="checkbox" data-bit="3">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b3</span>
+            </label>
+            <label class="dip-switch dip-boot" for="dip-sw-2">
+              <span class="dip-name">SW3</span>
+              <input id="dip-sw-2" type="checkbox" data-bit="2">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b2</span>
+            </label>
+            <label class="dip-switch dip-boot" for="dip-sw-1">
+              <span class="dip-name">SW2</span>
+              <input id="dip-sw-1" type="checkbox" data-bit="1">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b1</span>
+            </label>
+            <label class="dip-switch dip-boot" for="dip-sw-0">
+              <span class="dip-name">SW1</span>
+              <input id="dip-sw-0" type="checkbox" data-bit="0">
+              <span class="dip-track"><span class="dip-thumb"></span></span>
+              <span class="dip-bit">b0</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Memory & Timing -->
+        <div class="settings-grid-2">
+          <fieldset class="settings-section">
+            <legend class="settings-legend">
+              <span>RAM Size</span>
+              <span class="tag-restart">On Restart</span>
+            </legend>
+            <div class="segmented-group">
+              <label class="segmented-option">
+                <input id="settings-mem-128" type="radio" name="settings-memory" value="128" checked>
+                <span>128 KB (Standard)</span>
+              </label>
+              <label class="segmented-option">
+                <input id="settings-mem-64" type="radio" name="settings-memory" value="64">
+                <span>64 KB (-m 64)</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="settings-section">
+            <legend class="settings-legend">
+              <span>Hardware Timing</span>
+              <span class="tag-restart">On Restart</span>
+            </legend>
+            <div class="segmented-group">
+              <label class="segmented-option">
+                <input id="settings-timing-auth" type="radio" name="settings-timing" value="authentic" checked>
+                <span>Authentic MAX-80</span>
+              </label>
+              <label class="segmented-option">
+                <input id="settings-timing-quick" type="radio" name="settings-timing" value="quick">
+                <span>Quick (-q, no waits)</span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- Drives Configuration -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Floppy Drive Mechanics &amp; Protection</span>
+          </legend>
+          <div class="drives-settings-table">
+            <div class="drives-settings-head">
+              <span>Drive</span>
+              <span>3.5-inch (300 rpm) <em class="tag-inline">On Restart</em></span>
+              <span>Write-Protected <em class="tag-inline tag-immediate">Immediate</em></span>
+            </div>
+            <div class="drives-settings-row">
+              <span class="drive-col-label">Drive A:</span>
+              <label class="checkbox-label">
+                <input id="settings-three-0" type="checkbox" data-drive="0">
+                <span>3.5&quot; drive (-3 a)</span>
+              </label>
+              <label class="checkbox-label">
+                <input id="settings-wprot-0" type="checkbox" data-drive="0">
+                <span>Write-protected (-R a)</span>
+              </label>
+            </div>
+            <div class="drives-settings-row">
+              <span class="drive-col-label">Drive B:</span>
+              <label class="checkbox-label">
+                <input id="settings-three-1" type="checkbox" data-drive="1">
+                <span>3.5&quot; drive (-3 b)</span>
+              </label>
+              <label class="checkbox-label">
+                <input id="settings-wprot-1" type="checkbox" data-drive="1">
+                <span>Write-protected (-R b)</span>
+              </label>
+            </div>
+            <div class="drives-settings-row">
+              <span class="drive-col-label">Drive C:</span>
+              <label class="checkbox-label">
+                <input id="settings-three-2" type="checkbox" data-drive="2">
+                <span>3.5&quot; drive (-3 c)</span>
+              </label>
+              <label class="checkbox-label">
+                <input id="settings-wprot-2" type="checkbox" data-drive="2">
+                <span>Write-protected (-R c)</span>
+              </label>
+            </div>
+            <div class="drives-settings-row">
+              <span class="drive-col-label">Drive D:</span>
+              <label class="checkbox-label">
+                <input id="settings-three-3" type="checkbox" data-drive="3">
+                <span>3.5&quot; drive (-3 d)</span>
+              </label>
+              <label class="checkbox-label">
+                <input id="settings-wprot-3" type="checkbox" data-drive="3">
+                <span>Write-protected (-R d)</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Display Phosphor -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>CRT Display Phosphor</span>
+            <span class="tag-immediate">Immediate</span>
+          </legend>
+          <div class="segmented-group phosphor-group">
+            <label class="segmented-option">
+              <input id="settings-phosphor-white" type="radio" name="settings-phosphor" value="white" checked>
+              <span class="phosphor-swatch swatch-white"></span>
+              <span>White (#e8e8e8)</span>
+            </label>
+            <label class="segmented-option">
+              <input id="settings-phosphor-green" type="radio" name="settings-phosphor" value="green">
+              <span class="phosphor-swatch swatch-green"></span>
+              <span>P31 Green</span>
+            </label>
+            <label class="segmented-option">
+              <input id="settings-phosphor-amber" type="radio" name="settings-phosphor" value="amber">
+              <span class="phosphor-swatch swatch-amber"></span>
+              <span>P3 Amber</span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-settings-reset" type="button" class="btn btn-subtle">Reset Defaults</button>
+        <button id="btn-settings-close" type="button" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste Text Modal -->
+  <div id="modal-paste" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-paste-title" hidden>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-paste-title" class="modal-title">Paste Text to MAX-80</h2>
+          <p class="modal-subtitle">Streams characters into the MAX-80 keyboard buffer</p>
+        </div>
+        <button id="btn-close-paste" type="button" class="btn-close" aria-label="Close Paste dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="paste-textarea" class="input-textarea" rows="5" placeholder="Type or paste commands/text here..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-paste-clipboard" type="button" class="btn">Read Clipboard</button>
+        <div class="footer-right">
+          <button id="btn-paste-cancel" type="button" class="btn">Cancel</button>
+          <button id="btn-paste-send" type="button" class="btn btn-primary">Paste to MAX-80</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About / Keyboard Shortcuts Modal -->
+  <div id="modal-about" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-about-title" hidden>
+    <div class="modal-panel modal-md">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-about-title" class="modal-title">Lobo MAX-80 Web Emulator</h2>
+          <p class="modal-subtitle">5 MHz Z80B &middot; 128K Banked RAM &middot; 1797 FDC &middot; WebAssembly Core</p>
+        </div>
+        <button id="btn-close-about" type="button" class="btn-close" aria-label="Close About dialog">&times;</button>
+      </div>
+      <div class="modal-body about-body">
+        <p class="about-text">
+          Cycle-accurate hardware emulator for the Lobo Systems MAX-80 computer, compiled directly from the C reference core to WebAssembly.
+          Disk writes stay in memory so archive images are never overwritten; use <strong>Save As</strong> on any drive to download modified <code>.imd</code> images.
+        </p>
+        <div class="shortcuts-grid">
+          <div class="shortcut-group">
+            <h3>Emulator Shortcuts (Alt)</h3>
+            <dl class="shortcut-list">
+              <div><dt><kbd>Alt</kbd>+<kbd>1</kbd>..<kbd>4</kbd></dt><dd>Insert .imd disk in Drive A:..D:</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Restart MAX-80</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>F</kbd></dt><dd>Toggle Fast mode</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle On-Screen Keyboard</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>,</kbd></dt><dd>Open Hardware Settings</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Close modal (or MAX-80 ESC when running)</dd></div>
+            </dl>
+          </div>
+          <div class="shortcut-group">
+            <h3>MAX-80 Special Keys</h3>
+            <dl class="shortcut-list">
+              <div><dt><kbd>Ctrl</kbd>+<kbd>A</kbd>..<kbd>Z</kbd></dt><dd>Passed directly to MAX-80 / CP/M</dd></div>
+              <div><dt><kbd>F1</kbd>..<kbd>F4</kbd></dt><dd>MAX-80 Function keys F1..F4</dd></div>
+              <div><dt><kbd>Arrow Keys</kbd></dt><dd>MAX-80 Cursor keys</dd></div>
+              <div><dt><kbd>Pause</kbd> / <kbd>Break</kbd></dt><dd>MAX-80 BREAK key</dd></div>
+              <div><dt>Drag &amp; Drop</dt><dd>Drop <code>.imd</code> onto screen or drive card</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="footer-note">100% client-side WebAssembly &middot; Offline capable</span>
+        <button id="btn-about-close" type="button" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unsaved Disk Confirmation Modal -->
+  <div id="modal-unsaved" class="modal-backdrop modal-priority" role="alertdialog" aria-modal="true" aria-labelledby="modal-unsaved-title" aria-describedby="modal-unsaved-desc" hidden>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <h2 id="modal-unsaved-title" class="modal-title">Unsaved Disk Changes</h2>
+      </div>
+      <div class="modal-body">
+        <p id="modal-unsaved-desc" class="dialog-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-unsaved-cancel" type="button" class="btn">Cancel</button>
+        <div class="footer-right">
+          <button id="btn-unsaved-discard" type="button" class="btn btn-danger">Discard</button>
+          <button id="btn-unsaved-save" type="button" class="btn btn-primary">Save Disk As</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIP-Switch Mismatch Prompt Modal -->
+  <div id="modal-dip-mismatch" class="modal-backdrop modal-priority" role="alertdialog" aria-modal="true" aria-labelledby="modal-dip-title" aria-describedby="modal-dip-desc" hidden>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <h2 id="modal-dip-title" class="modal-title">Boot DIP Switch Mismatch</h2>
+      </div>
+      <div class="modal-body">
+        <p id="modal-dip-desc" class="dialog-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-dip-ignore" type="button" class="btn">Not Now</button>
+        <button id="btn-dip-apply" type="button" class="btn btn-primary">Set Boot Device</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./ui.js"></script>
+</body>
+</html>

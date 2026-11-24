@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compucorp 665 Emulator</title>
+  <link rel="stylesheet" href="./style.css?v=3">
+</head>
+<body>
+  <div id="app-shell" class="app-shell">
+    <!-- Top Control Bar -->
+    <header class="topbar" role="banner">
+      <div class="topbar-brand">
+        <div class="brand-logo" aria-hidden="true">665</div>
+        <div class="brand-meta">
+          <span class="brand-subtitle">Compucorp</span>
+          <span id="power-badge" class="status-badge status-off" aria-live="polite">
+            <span class="status-dot"></span>
+            <span id="power-badge-text">OFF</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="topbar-controls" role="toolbar" aria-label="Emulator controls">
+        <div class="control-group">
+          <button id="btn-power" type="button" class="btn btn-primary" title="Power On or Power Off the Compucorp 665">
+            <span class="btn-icon" aria-hidden="true">&#x23FB;</span>
+            <span id="btn-power-text">Power On</span>
+          </button>
+          <button id="btn-reset" type="button" class="btn" title="Soft Reset (Alt+R) &middot; Shift+Click for Hard Restart" disabled>
+            <span class="btn-icon" aria-hidden="true">&#x21BB;</span>
+            <span>Reset</span>
+          </button>
+          <button id="btn-break" type="button" class="btn" title="Monitor Break (F12 / Alt+B)" disabled>
+            <span class="btn-icon" aria-hidden="true">&#x23F8;</span>
+            <span>Break</span>
+          </button>
+          <button id="btn-fast" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle unthrottled Fast mode (Alt+F / ScrollLock)">
+            <span class="btn-icon" aria-hidden="true">&#x26A1;</span>
+            <span>Fast</span>
+          </button>
+        </div>
+
+        <div class="control-divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <button id="btn-library" type="button" class="btn btn-accent" title="Browse built-in disk and Omega software library">
+            <span class="btn-icon" aria-hidden="true">&#x1F4BF;</span>
+            <span>Library</span>
+            <span id="library-count-badge" class="pill-count" hidden>0</span>
+          </button>
+          <button id="btn-keystrip" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle Omega 20-key function keystrip (Alt+K)">
+            <span class="btn-icon" aria-hidden="true">&#x2328;</span>
+            <span>Keystrip</span>
+          </button>
+          <button id="btn-printer" type="button" class="btn" title="View SIO B Diablo 630 printer output (Alt+P)">
+            <span class="btn-icon" aria-hidden="true">&#x1F5A8;</span>
+            <span>Printer</span>
+            <span id="printer-count-badge" class="pill-count" hidden>0 B</span>
+          </button>
+          <button id="btn-paste" type="button" class="btn" title="Paste text into the 665 keyboard queue">
+            <span class="btn-icon" aria-hidden="true">&#x2398;</span>
+            <span>Paste</span>
+          </button>
+        </div>
+
+        <div class="control-divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <button id="btn-mute" type="button" class="btn btn-toggle" aria-pressed="false" title="Mute / Unmute ROM bell audio">
+            <span id="btn-mute-icon" class="btn-icon" aria-hidden="true">&#x1F50A;</span>
+            <span id="btn-mute-text">Sound</span>
+          </button>
+          <button id="btn-fullscreen" type="button" class="btn" title="Toggle fullscreen CRT display">
+            <span class="btn-icon" aria-hidden="true">&#x26F6;</span>
+            <span>Fullscreen</span>
+          </button>
+          <button id="btn-settings" type="button" class="btn" title="Paged memory boards, mains frequency &amp; drive settings (Alt+,)">
+            <span class="btn-icon" aria-hidden="true">&#x2699;</span>
+            <span>Settings</span>
+          </button>
+          <button id="btn-about" type="button" class="btn btn-icon-only" title="About &amp; Omega Quick Reference" aria-label="About and Omega Quick Reference">
+            <span aria-hidden="true">?</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main CRT Screen Viewport -->
+    <main class="viewport-area">
+      <div class="viewport-stack">
+        <div id="screen-container" class="screen-container" tabindex="-1">
+          <div class="crt-bezel">
+            <canvas id="screen-canvas" width="800" height="600" aria-label="Compucorp 665 CRT Display"></canvas>
+            <div id="screen-drop-overlay" class="drop-overlay" hidden>
+              <div class="drop-overlay-box">
+                <div class="drop-overlay-title">Drop .img to insert in Drive A:</div>
+                <div class="drop-overlay-sub">Or drop onto any Drive Card below (A: through D: &middot; optional .id pair supported)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Hardware Status Bar (mirrors cc665.c SDL status line) -->
+        <div id="hardware-status-bar" class="hardware-status-bar" role="status" aria-label="Hardware telemetry">
+          <div class="hw-status-left">
+            <span id="hw-mem-text" class="hw-status-item">MEM 64K+2&times;64K &middot; C000: MAIN</span>
+            <span class="hw-status-sep" aria-hidden="true">&middot;</span>
+            <span id="hw-mains-text" class="hw-status-item">MAINS 60 Hz</span>
+          </div>
+          <div class="hw-status-right">
+            <button id="btn-hw-ser" type="button" class="hw-ser-btn" title="SIO Channel B Printer Activity &mdash; Click to open Printer Output (Alt+P)">
+              <span id="hw-ser-led" class="hw-led" aria-hidden="true"></span>
+              <span class="hw-ser-label">SER</span>
+              <span id="hw-ser-bytes" class="hw-ser-bytes">0 B</span>
+            </button>
+            <span class="hw-status-sep" aria-hidden="true">&middot;</span>
+            <span id="hw-speed-text" class="hw-status-item hw-speed">--</span>
+          </div>
+        </div>
+
+        <!-- Collapsible Omega Function Keystrip (20 keys: F1..F10 & Alt+F1..Alt+F10) -->
+        <section id="omega-keystrip" class="omega-keystrip" aria-label="Omega 20-key Function Keystrip" hidden>
+          <div class="keystrip-header">
+            <div class="keystrip-controls">
+              <button id="btn-keystrip-ctrl" type="button" class="btn btn-xs btn-toggle keystrip-ctrl-btn" aria-pressed="false" title="Toggle Control shift legend for secondary Omega commands">
+                <span>Ctrl</span>
+              </button>
+              <span id="keystrip-hint" class="keystrip-hint">Click to send Omega function key &middot; F1&ndash;F10 &amp; Alt+F1&ndash;F10</span>
+            </div>
+            <button id="btn-keystrip-close" type="button" class="btn-close btn-close-sm" title="Hide Keystrip (Alt+K)" aria-label="Hide Omega Keystrip">&times;</button>
+          </div>
+          <div id="keystrip-grid" class="keystrip-grid" role="group" aria-label="Omega function keys"></div>
+        </section>
+      </div>
+
+      <!-- Status Toast Banner -->
+      <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    </main>
+
+    <!-- Floppy Drives Strip (A: to D:) -->
+    <section id="drives-strip" class="drives-strip" aria-label="Floppy disk drives A: through D:">
+      <!-- Drive A: -->
+      <div id="drive-card-0" class="drive-card" data-drive="0">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">A:</span>
+            <span id="drive-led-0" class="drive-led" title="Drive A: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-pos-0" class="badge badge-pos" hidden>T00 S0</span>
+            <span id="drive-unfmt-0" class="badge badge-unfmt" hidden title="Unformatted disk">Unfmt</span>
+            <span id="drive-mod-0" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-0" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-0" type="button" class="btn btn-xs" title="Insert .img disk image into A: (Alt+1)">Insert</button>
+          <button id="drive-unfmt-btn-0" type="button" class="btn btn-xs" title="Insert unformatted disk into A:">Unfmt</button>
+          <button id="drive-save-0" type="button" class="btn btn-xs" title="Download current A: disk image as .img" disabled>Save As</button>
+          <button id="drive-eject-0" type="button" class="btn btn-xs" title="Eject disk from A:" disabled>Eject</button>
+          <button id="drive-wp-0" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive A:">WP</button>
+        </div>
+        <input id="drive-file-0" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+      </div>
+
+      <!-- Drive B: -->
+      <div id="drive-card-1" class="drive-card" data-drive="1">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">B:</span>
+            <span id="drive-led-1" class="drive-led" title="Drive B: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-pos-1" class="badge badge-pos" hidden>T00 S0</span>
+            <span id="drive-unfmt-1" class="badge badge-unfmt" hidden title="Unformatted disk">Unfmt</span>
+            <span id="drive-mod-1" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-1" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-1" type="button" class="btn btn-xs" title="Insert .img disk image into B: (Alt+2)">Insert</button>
+          <button id="drive-unfmt-btn-1" type="button" class="btn btn-xs" title="Insert unformatted disk into B:">Unfmt</button>
+          <button id="drive-save-1" type="button" class="btn btn-xs" title="Download current B: disk image as .img" disabled>Save As</button>
+          <button id="drive-eject-1" type="button" class="btn btn-xs" title="Eject disk from B:" disabled>Eject</button>
+          <button id="drive-wp-1" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive B:">WP</button>
+        </div>
+        <input id="drive-file-1" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+      </div>
+
+      <!-- Drive C: -->
+      <div id="drive-card-2" class="drive-card" data-drive="2">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">C:</span>
+            <span id="drive-led-2" class="drive-led" title="Drive C: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-pos-2" class="badge badge-pos" hidden>T00 S0</span>
+            <span id="drive-unfmt-2" class="badge badge-unfmt" hidden title="Unformatted disk">Unfmt</span>
+            <span id="drive-mod-2" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-2" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-2" type="button" class="btn btn-xs" title="Insert .img disk image into C: (Alt+3)">Insert</button>
+          <button id="drive-unfmt-btn-2" type="button" class="btn btn-xs" title="Insert unformatted disk into C:">Unfmt</button>
+          <button id="drive-save-2" type="button" class="btn btn-xs" title="Download current C: disk image as .img" disabled>Save As</button>
+          <button id="drive-eject-2" type="button" class="btn btn-xs" title="Eject disk from C:" disabled>Eject</button>
+          <button id="drive-wp-2" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive C:">WP</button>
+        </div>
+        <input id="drive-file-2" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+      </div>
+
+      <!-- Drive D: -->
+      <div id="drive-card-3" class="drive-card" data-drive="3">
+        <div class="drive-header">
+          <div class="drive-id">
+            <span class="drive-letter">D:</span>
+            <span id="drive-led-3" class="drive-led" title="Drive D: status"></span>
+          </div>
+          <div class="drive-badges">
+            <span id="drive-pos-3" class="badge badge-pos" hidden>T00 S0</span>
+            <span id="drive-unfmt-3" class="badge badge-unfmt" hidden title="Unformatted disk">Unfmt</span>
+            <span id="drive-mod-3" class="badge badge-modified" hidden title="Disk has unsaved writes">&#x25CF; Modified</span>
+          </div>
+        </div>
+        <div id="drive-name-3" class="drive-filename is-empty" title="Empty">Empty</div>
+        <div class="drive-actions">
+          <button id="drive-insert-3" type="button" class="btn btn-xs" title="Insert .img disk image into D: (Alt+4)">Insert</button>
+          <button id="drive-unfmt-btn-3" type="button" class="btn btn-xs" title="Insert unformatted disk into D:">Unfmt</button>
+          <button id="drive-save-3" type="button" class="btn btn-xs" title="Download current D: disk image as .img" disabled>Save As</button>
+          <button id="drive-eject-3" type="button" class="btn btn-xs" title="Eject disk from D:" disabled>Eject</button>
+          <button id="drive-wp-3" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive D:">WP</button>
+        </div>
+        <input id="drive-file-3" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+      </div>
+    </section>
+  </div>
+
+  <!-- Built-In Disk & Software Library Modal -->
+  <div id="modal-library" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-library-title" hidden>
+    <div class="modal-panel modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-library-title" class="modal-title">Compucorp 665 Disk Library</h2>
+          <p class="modal-subtitle">Boot Omega or ZEBRA directly in Drive A: or mount document &amp; utility disks in Drive B:</p>
+        </div>
+        <div class="modal-header-actions">
+          <button id="btn-library-boot-omega-suite" type="button" class="btn btn-accent btn-sm" title="Stage Omega Master Boot Disk in A: and Document Disk in B:, then boot" hidden>
+            &#x26A1; Boot Omega Suite (A: Boot + B: Docs)
+          </button>
+          <button id="btn-close-library" type="button" class="btn-close" aria-label="Close Library">&times;</button>
+        </div>
+      </div>
+      <div class="library-toolbar">
+        <div class="library-search-wrap">
+          <input id="library-search" type="search" class="input-search" placeholder="Search Omega, ZEBRA, diagnostics, blank media..." autocomplete="off">
+        </div>
+        <div id="library-categories" class="library-categories" role="tablist" aria-label="Disk categories"></div>
+      </div>
+      <div id="library-list" class="library-list" role="region" aria-label="Available disk images"></div>
+      <div class="modal-footer">
+        <span id="library-status-text" class="footer-note">Select a disk image to boot or mount.</span>
+        <button id="btn-library-done" type="button" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hardware Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title" hidden>
+    <div class="modal-panel modal-md">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-settings-title" class="modal-title">Compucorp 665 Hardware Settings</h2>
+          <p class="modal-subtitle">Saved automatically in browser storage (cc665.web.settings.v1)</p>
+        </div>
+        <button id="btn-close-settings" type="button" class="btn-close" aria-label="Close Settings">&times;</button>
+      </div>
+      <div class="modal-body settings-body">
+        <div id="settings-restart-banner" class="restart-banner" hidden>
+          <div class="restart-banner-text">
+            <strong>Restart required:</strong> Hardware configuration changes (paged memory boards, mains frequency, or experimental board mods) take effect on Hard Restart.
+          </div>
+          <button id="btn-settings-restart-now" type="button" class="btn btn-primary btn-sm">Hard Restart Now</button>
+        </div>
+
+        <!-- Paged Memory Boards & Mains Frequency -->
+        <div class="settings-grid-2">
+          <fieldset class="settings-section">
+            <legend class="settings-legend">
+              <span>Paged Memory Boards</span>
+              <span class="tag-restart">On Restart</span>
+            </legend>
+            <div class="settings-col">
+              <label for="settings-boards" class="settings-label">Add-on 64K Cards (-m 0..4)</label>
+              <select id="settings-boards" class="input-select">
+                <option value="0">0 &mdash; 64K main only</option>
+                <option value="1">1 &mdash; 64K + 64K</option>
+                <option value="2" selected>2 &mdash; 64K + 128K (Recommended)</option>
+                <option value="3">3 &mdash; 64K + 192K</option>
+                <option value="4">4 &mdash; 64K + 256K</option>
+              </select>
+              <p class="settings-note">Omega requires &ge; 1 paged memory board (will not start with 0 boards).</p>
+            </div>
+          </fieldset>
+
+          <fieldset class="settings-section">
+            <legend class="settings-legend">
+              <span>Mains Frequency</span>
+              <span class="tag-restart">On Restart</span>
+            </legend>
+            <div class="segmented-group">
+              <label class="segmented-option">
+                <input id="settings-mains-60" type="radio" name="settings-mains" value="60" checked>
+                <span>60 Hz (North America, default)</span>
+              </label>
+              <label class="segmented-option">
+                <input id="settings-mains-50" type="radio" name="settings-mains" value="50">
+                <span>50 Hz (-F 50)</span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- Experimental Board Mods -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Experimental Board Mods</span>
+            <span class="tag-restart">On Restart</span>
+          </legend>
+          <div class="settings-checks-grid">
+            <label class="checkbox-label">
+              <input id="settings-rom-switch" type="checkbox">
+              <span>ROM-off switch on port 74h (-o)</span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-lower-page" type="checkbox">
+              <span>Lower paged memory at 8000h (-l)</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Floppy Drives Write-Protect -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Floppy Drives Write-Protect (A:..D:)</span>
+            <span class="tag-immediate">Immediate</span>
+          </legend>
+          <div class="drives-wp-grid">
+            <label class="checkbox-label">
+              <input id="settings-wprot-0" type="checkbox" data-drive="0">
+              <span>Drive A: Write-protected (-R a)</span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-wprot-1" type="checkbox" data-drive="1">
+              <span>Drive B: Write-protected (-R b)</span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-wprot-2" type="checkbox" data-drive="2">
+              <span>Drive C: Write-protected (-R c)</span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-wprot-3" type="checkbox" data-drive="3">
+              <span>Drive D: Write-protected (-R d)</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Display Phosphor -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>CRT Display Phosphor</span>
+            <span class="tag-immediate">Immediate</span>
+          </legend>
+          <div class="segmented-group phosphor-group">
+            <label class="segmented-option">
+              <input id="settings-phosphor-cyan" type="radio" name="settings-phosphor" value="cyan" checked>
+              <span class="phosphor-swatch swatch-cyan"></span>
+              <span>665 Cyan (#b4ecff)</span>
+            </label>
+            <label class="segmented-option">
+              <input id="settings-phosphor-white" type="radio" name="settings-phosphor" value="white">
+              <span class="phosphor-swatch swatch-white"></span>
+              <span>White (#e8e8e8)</span>
+            </label>
+            <label class="segmented-option">
+              <input id="settings-phosphor-green" type="radio" name="settings-phosphor" value="green">
+              <span class="phosphor-swatch swatch-green"></span>
+              <span>P31 Green</span>
+            </label>
+            <label class="segmented-option">
+              <input id="settings-phosphor-amber" type="radio" name="settings-phosphor" value="amber">
+              <span class="phosphor-swatch swatch-amber"></span>
+              <span>P3 Amber</span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-settings-reset" type="button" class="btn btn-subtle">Reset Defaults</button>
+        <button id="btn-settings-close" type="button" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printer Output Modal -->
+  <div id="modal-printer" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-printer-title" hidden>
+    <div class="modal-panel modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-printer-title" class="modal-title">SIO Channel B Printer Output</h2>
+          <p id="printer-subtitle" class="modal-subtitle">0 bytes captured &middot; Diablo 630 Daisy-Wheel Decoder</p>
+        </div>
+        <div class="modal-header-actions">
+          <div class="printer-view-toggle" role="group" aria-label="Printer output view mode">
+            <button id="btn-printer-view-rendered" type="button" class="btn btn-xs btn-toggle is-active" aria-pressed="true">Rendered (Diablo 630)</button>
+            <button id="btn-printer-view-raw" type="button" class="btn btn-xs btn-toggle" aria-pressed="false">Raw Text/Hex</button>
+          </div>
+          <button id="btn-close-printer" type="button" class="btn-close" aria-label="Close Printer dialog">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body printer-body">
+        <pre id="printer-output" class="printer-output" tabindex="0">Press PRINT (F4) in Omega to capture printer output.</pre>
+      </div>
+      <div class="modal-footer">
+        <div class="footer-left">
+          <button id="btn-printer-copy" type="button" class="btn">Copy Text</button>
+          <button id="btn-printer-dl-txt" type="button" class="btn">Download .txt</button>
+          <button id="btn-printer-dl-bin" type="button" class="btn">Download Raw .bin</button>
+        </div>
+        <div class="footer-right">
+          <button id="btn-printer-clear" type="button" class="btn btn-danger">Clear</button>
+          <button id="btn-printer-close" type="button" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste Text Modal -->
+  <div id="modal-paste" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-paste-title" hidden>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-paste-title" class="modal-title">Paste Text to Compucorp 665</h2>
+          <p class="modal-subtitle">Streams characters into the 665 keyboard buffer at 15 chars/sec</p>
+        </div>
+        <button id="btn-close-paste" type="button" class="btn-close" aria-label="Close Paste dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="paste-textarea" class="input-textarea" rows="5" placeholder="Type or paste text or ZEBRA commands here..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-paste-clipboard" type="button" class="btn">Read Clipboard</button>
+        <div class="footer-right">
+          <button id="btn-paste-cancel" type="button" class="btn">Cancel</button>
+          <button id="btn-paste-send" type="button" class="btn btn-primary">Paste to 665</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About & Omega Reference Modal -->
+  <div id="modal-about" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-about-title" hidden>
+    <div class="modal-panel modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-about-title" class="modal-title">Compucorp 665 Web Emulator &amp; Omega Reference</h2>
+          <p class="modal-subtitle">3.79 MHz Z80 &middot; 64K + 4&times;64K Paged RAM &middot; 80&times;20 CRT &middot; Dual-Door 315 KB Floppies &middot; WebAssembly Core</p>
+        </div>
+        <button id="btn-close-about" type="button" class="btn-close" aria-label="Close About dialog">&times;</button>
+      </div>
+      <div class="modal-body about-body">
+        <p class="about-text">
+          Hardware-level emulator for the Compucorp 665 word processor running ZEBRA 7.04 and the Omega word processing system, compiled from the C reference core to WebAssembly.
+          Disk writes stay in browser memory; use <strong>Save As</strong> on any drive card to download modified <code>.img</code> images.
+        </p>
+
+        <div class="about-callout">
+          <strong>Omega Quick Start:</strong> Drive <code>A:</code> holds <code>boot.img</code> (Omega Boot Disk) and Drive <code>B:</code> holds <code>docs.img</code> (Document Disk).
+          Click <strong>Power On</strong>. At real speed, booting takes <strong>~119 seconds</strong> (screen stays blank for the final minute while loading overlays); toggle <strong>Fast</strong> (<kbd>Alt</kbd>+<kbd>F</kbd> or <kbd>ScrollLock</kbd>) to boot in <strong>~1 second</strong>!
+          At the prompts, enter Time (<code>10/30 AM</code> or <kbd>Enter</kbd>) and Date (<code>11/24/26</code> or <kbd>Enter</kbd>) to open a blank Omega page.
+        </div>
+
+        <div class="shortcuts-grid">
+          <div class="shortcut-group">
+            <h3>Emulator Shortcuts (Alt)</h3>
+            <dl class="shortcut-list">
+              <div><dt><kbd>Alt</kbd>+<kbd>1</kbd>..<kbd>4</kbd></dt><dd>Insert .img disk in Drive A:..D:</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Soft Reset (Shift+Click Reset for Hard Restart)</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>B</kbd> / <kbd>F12</kbd></dt><dd>Monitor Break (ZEBRA V PD04 ROM monitor)</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>F</kbd> / <kbd>ScrollLock</kbd></dt><dd>Toggle Fast mode (119s boot &rarr; ~1s)</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle on-screen Omega 20-key Keystrip</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>Open SIO B Printer Output (Diablo 630)</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>,</kbd></dt><dd>Open Hardware Settings</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Close modal (or 665 STOP 1Bh when running)</dd></div>
+            </dl>
+          </div>
+
+          <div class="shortcut-group">
+            <h3>Key Omega Actions &amp; COMMAND (F2) Codes</h3>
+            <dl class="shortcut-list">
+              <div><dt><kbd>F6</kbd> (SAVE)</dt><dd>Save document to B: (up to 35 chars, no colon)</dd></div>
+              <div><dt><kbd>F1</kbd> (INDEX) &rarr; <kbd>F7</kbd></dt><dd>List documents on B:, then RECALL selected</dd></div>
+              <div><dt><kbd>F4</kbd> (PRINT)</dt><dd>Print document to SIO B Diablo 630 capture</dd></div>
+              <div><dt><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F1</kbd> (CLEAR)</dt><dd>Clear screen page (press Y to confirm)</dd></div>
+              <div><dt><kbd>F2</kbd> then <code>I R</code></dt><dd>Recall a document by name</dd></div>
+              <div><dt><kbd>F2</kbd> then <code>I D</code></dt><dd>Delete a document by name</dd></div>
+              <div><dt><kbd>F2</kbd> then <code>P D</code></dt><dd>Prepare (format) disk in B: for Omega</dd></div>
+              <div><dt><kbd>F2</kbd> then <code>S T</code> / <code>R T</code></dt><dd>Search Text / Replace Text</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="footer-note">100% client-side WebAssembly &middot; Offline capable</span>
+        <button id="btn-about-close" type="button" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unsaved Disk Confirmation Modal -->
+  <div id="modal-unsaved" class="modal-backdrop modal-priority" role="alertdialog" aria-modal="true" aria-labelledby="modal-unsaved-title" aria-describedby="modal-unsaved-desc" hidden>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <h2 id="modal-unsaved-title" class="modal-title">Unsaved Disk Changes</h2>
+      </div>
+      <div class="modal-body">
+        <p id="modal-unsaved-desc" class="dialog-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-unsaved-cancel" type="button" class="btn">Cancel</button>
+        <div class="footer-right">
+          <button id="btn-unsaved-discard" type="button" class="btn btn-danger">Discard</button>
+          <button id="btn-unsaved-save" type="button" class="btn btn-primary">Save Disk As</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Memory Board Warning Modal -->
+  <div id="modal-mem-warn" class="modal-backdrop modal-priority" role="alertdialog" aria-modal="true" aria-labelledby="modal-mem-warn-title" aria-describedby="modal-mem-warn-desc" hidden>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <h2 id="modal-mem-warn-title" class="modal-title">Paged Memory Required for Omega</h2>
+      </div>
+      <div class="modal-body">
+        <p id="modal-mem-warn-desc" class="dialog-message">
+          Drive A: contains the Omega Boot Disk (<code>boot.img</code>), but Paged Memory Boards is currently set to <strong>0</strong>. Omega requires at least 1 add-on paged memory board and will not start with 0 boards.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-mem-warn-continue" type="button" class="btn">Continue with 0 Boards</button>
+        <button id="btn-mem-warn-fix" type="button" class="btn btn-primary">Set 2 Boards &amp; Power On</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./ui.js?v=3"></script>
+</body>
+</html>

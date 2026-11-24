@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6eedc"/>
+      <stop offset="1" stop-color="#ddcfae"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123620"/>
+      <stop offset="1" stop-color="#07170d"/>
+    </linearGradient>
+    <pattern id="keys" width="9" height="6" patternUnits="userSpaceOnUse" x="25" y="80">
+      <rect x="0.5" y="0.5" width="7.5" height="4.5" rx="1" fill="#e9dfc8"/>
+    </pattern>
+  </defs>
+  <rect x="8" y="24" width="112" height="92" rx="14" fill="#a8956c"/>
+  <rect x="8" y="16" width="112" height="94" rx="14" fill="url(#body)"/>
+  <rect x="20" y="25" width="88" height="46" rx="7" fill="#4b4337"/>
+  <rect x="24" y="29" width="80" height="38" rx="4" fill="url(#screen)"/>
+  <g fill="#66ff99">
+    <rect x="29" y="34" width="34" height="3" rx="1"/>
+    <rect x="29" y="40" width="52" height="3" rx="1" opacity=".85"/>
+    <rect x="29" y="46" width="22" height="3" rx="1" opacity=".85"/>
+    <rect x="29" y="52" width="44" height="3" rx="1" opacity=".85"/>
+    <rect x="29" y="58" width="6" height="4" rx="1"/>
+  </g>
+  <rect x="24" y="29" width="80" height="14" rx="4" fill="#fff" opacity=".05"/>
+  <rect x="20" y="77" width="88" height="25" rx="5" fill="#6d604b"/>
+  <rect x="24" y="80" width="72" height="18" fill="url(#keys)"/>
+  <rect x="97" y="80" width="7" height="10.5" rx="1" fill="#e07a2c"/>
+  <rect x="97" y="92" width="7" height="4.5" rx="1" fill="#e9dfc8"/>
+</svg>

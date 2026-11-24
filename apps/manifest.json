@@ -1,0 +1,20 @@
+{
+  "apps": [
+    {
+      "id": "compucorp",
+      "name": "Compucorp 665",
+      "description": "Compucorp 665 desktop computer (Z80)",
+      "icon": "icons/compucorp.svg",
+      "path": "apps/compucorp/",
+      "window": { "width": 1100, "height": 820 }
+    },
+    {
+      "id": "max80",
+      "name": "Lobo MAX-80",
+      "description": "Lobo Systems MAX-80 (Z80)",
+      "icon": "icons/max80.svg",
+      "path": "apps/max80/",
+      "window": { "width": 1100, "height": 820 }
+    }
+  ]
+}

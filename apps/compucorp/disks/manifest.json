@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-11-24T22:17:14Z",
+  "mode": "public",
+  "defaults": {
+    "driveA": "cc665-diag",
+    "driveB": "omega-docs"
+  },
+  "disks": [
+    {
+      "id": "omega-docs",
+      "title": "Omega Document Disk (DOCS)",
+      "category": "Omega Word Processor",
+      "file": "disks/docs.img",
+      "idFile": "disks/docs.id",
+      "headerId": "5D85FD",
+      "size": 315392,
+      "defaultDrive": 1,
+      "minBoards": 0,
+      "description": "Prepared empty Omega document disk (150 free pages) ready for saving and recalling documents in Drive B:.",
+      "public": true
+    },
+    {
+      "id": "blank-formatted",
+      "title": "Blank Formatted Disk",
+      "category": "Utilities & Blank Media",
+      "file": "disks/blank.img",
+      "idFile": "disks/blank.id",
+      "headerId": "5678EA",
+      "size": 315392,
+      "defaultDrive": 1,
+      "minBoards": 0,
+      "description": "Low-level formatted disk (data only on track 0). Use Omega COMMAND P D to prepare it as a document disk.",
+      "public": true
+    },
+    {
+      "id": "cc665-diag",
+      "title": "Compucorp 665 Hardware Diagnostics",
+      "category": "Diagnostics",
+      "file": "disks/diag.img",
+      "idFile": "disks/diag.id",
+      "headerId": "444941",
+      "size": 315392,
+      "defaultDrive": 0,
+      "minBoards": 0,
+      "description": "Standalone bare-metal hardware diagnostic suite testing RAM, paged memory boards, video, keyboard, CTC/mains, floppy, and SIO B.",
+      "public": true
+    },
+    {
+      "id": "cc665-romprobe",
+      "title": "ROM-Switch Hardware Probe",
+      "category": "Diagnostics",
+      "file": "disks/romprobe.img",
+      "idFile": "disks/romprobe.id",
+      "headerId": "444941",
+      "size": 315392,
+      "defaultDrive": 0,
+      "minBoards": 0,
+      "description": "Tests candidate output ports (port 74h, PIO B spare pins, SIO B lines) to see if any unmap the boot ROM. Enable ROM-off switch in Settings to see port 74h react.",
+      "public": true
+    }
+  ]
+}

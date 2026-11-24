@@ -1,0 +1,39 @@
+name: Sync MAX-80
+
+# Pulls the latest build from k6lcm/max80-web into apps/max80/.
+# Run it from the Actions tab, or trigger it from another repo with:
+#   gh api repos/k6lcm/adb-web-emus/dispatches -f event_type=sync-max80
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [sync-max80]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Sync from k6lcm/max80-web
+        run: tools/sync-app.sh max80 https://github.com/k6lcm/max80-web.git#main
+
+      - name: Commit and redeploy if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain -- apps/max80)" ]; then
+            echo "MAX-80 is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/max80
+          git commit -m "Sync MAX-80 from k6lcm/max80-web@$(jq -r .revision apps/max80/sync-info.json)"
+          git push
+          # Pushes made with GITHUB_TOKEN do not trigger workflows, but
+          # workflow_dispatch does.
+          gh workflow run deploy.yml --ref main
