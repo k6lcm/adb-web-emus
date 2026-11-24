@@ -5,9 +5,7 @@
 Compucorp 665, Lobo MAX-80 and Plexus P/20 run locally in your browser,
 each in its own window. GitHub serves the static files.
 
-This repository is the public hosting copy. Development takes place in
-`private-development/web-emulators`; updates here are published from that private
-repository. This copy contains the browser app, compiled emulators, public
+This repository hosts the emulator desktop. It contains the browser app, compiled emulators, public
 ROM/disk libraries, licenses and the GitHub Pages deployment workflow.
 
 Plexus downloads about 73 MiB on first launch. Wait for self-test (or type
