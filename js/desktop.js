@@ -392,7 +392,6 @@ function renderDock() {
 }
 
 function dockClick(id) {
-  closeOverview();
   const w = state.windows.get(id);
   if (!w) openApp(id);
   else if (w.minimized) restore(w);
@@ -465,75 +464,6 @@ function renderDesktopIcons() {
   });
 }
 
-// --------------------------------------------------------------- overview
-
-function renderAppGrid() {
-  const grid = $('#app-grid');
-  for (const app of state.apps) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'grid-tile';
-    b.dataset.app = app.id;
-    b.title = app.description || app.name;
-    b.dataset.search = [app.name, app.id, app.description ?? ''].join(' ').toLowerCase();
-    const label = document.createElement('span');
-    label.textContent = app.name;
-    b.append(iconImg(app, 96), label);
-    b.addEventListener('click', () => { closeOverview(); openApp(app.id); });
-    grid.append(b);
-  }
-}
-
-function filterGrid(query) {
-  const q = query.trim().toLowerCase();
-  let first = null;
-  document.querySelectorAll('.grid-tile').forEach((t) => {
-    const match = !q || t.dataset.search.includes(q);
-    t.hidden = !match;
-    t.classList.remove('default');
-    if (match && !first) first = t;
-  });
-  if (q && first) first.classList.add('default');
-  return first;
-}
-
-function openOverview() {
-  closeSystemMenu();
-  const ov = $('#overview');
-  ov.hidden = false;
-  $('#activities-btn').classList.add('active');
-  const search = $('#overview-search');
-  search.value = '';
-  filterGrid('');
-  search.focus();
-}
-
-function closeOverview() {
-  $('#overview').hidden = true;
-  $('#activities-btn').classList.remove('active');
-}
-
-function toggleOverview() {
-  if ($('#overview').hidden) openOverview();
-  else closeOverview();
-}
-
-function setupOverview() {
-  $('#activities-btn').addEventListener('click', toggleOverview);
-  $('#show-apps-btn').addEventListener('click', toggleOverview);
-  const search = $('#overview-search');
-  search.addEventListener('input', () => filterGrid(search.value));
-  search.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const first = filterGrid(search.value);
-      if (first) first.click();
-    }
-  });
-  $('#overview').addEventListener('click', (e) => {
-    if (e.target.id === 'overview' || e.target.id === 'app-grid') closeOverview();
-  });
-}
-
 // ------------------------------------------------------------ system menu
 
 function closeSystemMenu() {
@@ -547,7 +477,6 @@ function setupSystemMenu() {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     const open = menu.hidden;
-    closeOverview();
     menu.hidden = !open;
     btn.classList.toggle('active', open);
   });
@@ -641,14 +570,13 @@ function showMessage(text) {
 async function boot() {
   applyMobile();
   startClock();
-  setupOverview();
   setupSystemMenu();
   setupDockAutohide();
   addEventListener('resize', onViewportResize);
   MOBILE_QUERY.addEventListener('change', onViewportResize);
   addEventListener('hashchange', openFromHash);
   addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeOverview(); closeSystemMenu(); }
+    if (e.key === 'Escape') closeSystemMenu();
   });
 
   try {
@@ -663,7 +591,6 @@ async function boot() {
 
   renderDesktopIcons();
   renderDock();
-  renderAppGrid();
   openFromHash();
 }
 

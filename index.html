@@ -12,9 +12,6 @@
 </head>
 <body>
   <header id="topbar">
-    <div class="topbar-start">
-      <button id="activities-btn" class="topbar-pill" type="button" aria-haspopup="dialog">Activities</button>
-    </div>
     <div class="topbar-center">
       <time id="clock" class="topbar-pill"></time>
     </div>
@@ -35,18 +32,9 @@
   <div id="dock-wrap">
     <nav id="dock" aria-label="Dock">
       <div id="dock-apps"></div>
-      <span class="dock-sep" aria-hidden="true"></span>
-      <button id="show-apps-btn" class="dock-item" type="button" title="Show Apps" aria-label="Show Apps">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></g></svg>
-      </button>
     </nav>
   </div>
   <div id="dock-reveal" aria-hidden="true"></div>
-
-  <div id="overview" hidden role="dialog" aria-label="Applications">
-    <input id="overview-search" type="search" placeholder="Type to search" autocomplete="off" spellcheck="false">
-    <div id="app-grid"></div>
-  </div>
 
   <div id="system-menu" hidden role="menu">
     <button type="button" role="menuitem" data-cmd="about">
