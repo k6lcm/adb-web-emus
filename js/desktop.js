@@ -479,6 +479,7 @@ function renderDesktopIcons() {
 function closeSystemMenu() {
   $('#system-menu').hidden = true;
   $('#tray-btn').classList.remove('active');
+  $('#tray-btn').setAttribute('aria-expanded', 'false');
 }
 
 function setupSystemMenu() {
@@ -489,6 +490,7 @@ function setupSystemMenu() {
     const open = menu.hidden;
     menu.hidden = !open;
     btn.classList.toggle('active', open);
+    btn.setAttribute('aria-expanded', String(open));
   });
   document.addEventListener('pointerdown', (e) => {
     if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) closeSystemMenu();

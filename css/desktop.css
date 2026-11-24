@@ -72,7 +72,7 @@ body.wm-busy { cursor: grabbing; }
 }
 
 .topbar-center { grid-column: 2; justify-self: center; }
-.topbar-end { grid-column: 3; justify-self: end; }
+.topbar-start { grid-column: 1; grid-row: 1; justify-self: start; }
 
 .topbar-pill {
   display: flex;
@@ -89,7 +89,8 @@ button.topbar-pill:hover,
 #clock:hover { background: rgba(255, 255, 255, 0.17); }
 button.topbar-pill.active { background: rgba(255, 255, 255, 0.25); }
 
-.tray svg { width: 16px; height: 16px; }
+.brand-menu { height: 28px; padding: 0 12px; border-radius: 6px; }
+.brand-menu svg { width: 20px; height: 24px; }
 
 /* ---------- Desktop + icons ---------- */
 
@@ -373,12 +374,12 @@ body.mobile [data-action="maximize"] { display: none; }
 
 body.dock-autohidden #dock-reveal { display: block; }
 
-/* ---------- System menu (quick settings style) ---------- */
+/* ---------- Desktop menu ---------- */
 
 #system-menu {
   position: fixed;
   top: calc(var(--topbar-h) + 6px);
-  right: 8px;
+  left: 8px;
   z-index: 100001;
   width: 260px;
   padding: 10px;
