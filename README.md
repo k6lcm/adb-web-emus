@@ -7,6 +7,7 @@ each in its own window. GitHub serves the static files.
 
 This repository hosts the emulator desktop. It contains the browser app, compiled emulators, public
 ROM/disk libraries, licenses and the GitHub Pages deployment workflow.
+Build metadata identifies emulator components without exposing private development locations.
 
 Plexus downloads about 73 MiB on first launch. Wait for self-test (or type
 `!`), then press Enter at the primary boot prompt. Its About and help dialogs
