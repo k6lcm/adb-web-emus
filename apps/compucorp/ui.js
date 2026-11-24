@@ -6,8 +6,10 @@
  * paste modal, and confirmation dialogs.
  */
 
-import { Cc665Emulator, DISK_SIZE, PHOSPHOR_RGB, renderDiabloText } from './emulator.js?v=3';
+import { Cc665Emulator, DISK_SIZE, PHOSPHOR_RGB, renderDiabloText } from './emulator.js?v=4';
 import { attachKeyboard, OMEGA_KEYS, K_BREAK, K_RESET } from './keyboard.js';
+
+import { createOnScreenKeyboard } from './osk.js?v=4';
 
 const STORAGE_KEY = 'cc665.web.settings.v1';
 const DRIVE_LETTERS = ['A:', 'B:', 'C:', 'D:'];
@@ -190,6 +192,26 @@ const dom = {
 
 const initialSettings = loadStoredSettings();
 const emu = new Cc665Emulator(initialSettings);
+const keysButton = document.getElementById('btn-keys');
+const rememberKeyboard = (key, value) => { try { localStorage.setItem('cc665.osk.' + key, value); } catch {} };
+const readKeyboard = key => { try { return localStorage.getItem('cc665.osk.' + key); } catch { return null; } };
+const osk = createOnScreenKeyboard(document.getElementById('osk-dock'), emu, {
+  initialMode: readKeyboard('mode'),
+  onModeChange: mode => rememberKeyboard('mode', mode),
+  onVisibilityChange: visible => {
+    keysButton.setAttribute('aria-pressed', String(visible));
+    keysButton.classList.toggle('is-active', visible);
+    rememberKeyboard('visible', String(visible));
+  },
+  onPowerNeeded: () => showToast('Power on the Compucorp to type', 'info'),
+  onToggleKeystrip: () => handleToggleKeystrip()
+});
+keysButton.addEventListener('click', () => osk.toggleVisible());
+const savedKeyboardVisibility = readKeyboard('visible');
+osk.setVisible(savedKeyboardVisibility === null
+  ? matchMedia('(pointer: coarse)').matches || matchMedia('(hover: none)').matches || innerWidth <= 900
+  : savedKeyboardVisibility === 'true');
+
 
 let libraryManifest = null;
 let libraryDisks = [];
@@ -248,6 +270,7 @@ function isKeyboardBlocked() {
 
 function openModal(modalEl, focusEl = null) {
   if (!modalEl) return;
+  osk.releaseAll();
   modalEl.hidden = false;
   if (focusEl && typeof focusEl.focus === 'function') {
     window.requestAnimationFrame(() => focusEl.focus());
@@ -432,17 +455,17 @@ function renderTopbar(telemetry) {
   if (!powered) {
     dom.powerBadge.classList.add('status-off');
     dom.powerBadgeText.textContent = 'OFF';
-    dom.btnPowerText.textContent = 'Power On';
+    dom.btnPowerText.textContent = 'Power';
     dom.btnPower.classList.remove('is-power-on');
   } else if (fast) {
     dom.powerBadge.classList.add('status-fast');
     dom.powerBadgeText.textContent = 'FAST';
-    dom.btnPowerText.textContent = 'Power Off';
+    dom.btnPowerText.textContent = 'Power';
     dom.btnPower.classList.add('is-power-on');
   } else {
     dom.powerBadge.classList.add('status-on');
     dom.powerBadgeText.textContent = 'ON';
-    dom.btnPowerText.textContent = 'Power Off';
+    dom.btnPowerText.textContent = 'Power';
     dom.btnPower.classList.add('is-power-on');
   }
 
@@ -935,6 +958,7 @@ async function performPowerOff() {
   const ok = await confirmAllUnsavedDrives('power off the machine');
   if (!ok) return;
   try {
+    osk.releaseAll();
     emu.powerOff();
     renderAll();
     showToast('Compucorp 665 powered off', 'info');
@@ -1004,6 +1028,7 @@ function handleToggleMute() {
 }
 
 async function handleToggleFullscreen() {
+  if (window.matchMedia('(max-width: 640px), (hover: none), (pointer: coarse)').matches) return;
   const target = dom.screenContainer;
   if (!target) return;
   try {
@@ -1929,7 +1954,7 @@ function wireControls() {
         handleToggleFast();
       } else if (key === 'k' || code === 'KeyK') {
         e.preventDefault();
-        handleToggleKeystrip();
+        osk.toggleVisible();
       } else if (key === 'p' || code === 'KeyP') {
         e.preventDefault();
         if (!dom.modalPrinter.hidden) {

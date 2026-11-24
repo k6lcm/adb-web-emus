@@ -279,16 +279,29 @@ body {
   border-color: #93c5fd;
 }
 
-.btn-primary.is-power-on {
-  background-color: #263142;
-  border-color: #4f6280;
-  color: var(--text-primary);
+#btn-power {
+  background-color: #7f1d1d;
+  border-color: #ef4444;
+  color: #ffffff;
 }
 
-.btn-primary.is-power-on:hover:not(:disabled) {
-  background-color: #7f1d1d;
-  border-color: var(--accent-danger);
-  color: #fecaca;
+#btn-power:hover:not(:disabled) {
+  background-color: #991b1b;
+  border-color: #f87171;
+}
+
+#btn-power.is-power-on {
+  background-color: #166534;
+  border-color: #22c55e;
+}
+
+#btn-power.is-power-on:hover:not(:disabled) {
+  background-color: #15803d;
+  border-color: #4ade80;
+}
+
+@media (max-width: 640px), (hover: none), (pointer: coarse) {
+  #btn-fullscreen { display: none; }
 }
 
 .btn-accent {
@@ -1582,3 +1595,359 @@ code {
   width: 100%;
   height: 100%;
 }
+
+/* ---- On-Screen Keyboard & Arrow Pad ---- */
+
+.osk-dock {
+  flex-shrink: 0;
+  background-color: #10141a;
+  border-top: 1px solid var(--border-subtle);
+  padding: 7px 12px 9px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.osk-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.osk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.osk-fn-group,
+.osk-mode-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.osk-key,
+.osk-ctrl-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.osk-ctrl-btn {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background-color: var(--bg-panel-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  min-height: 28px;
+}
+
+.osk-ctrl-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.osk-ctrl-btn.is-active {
+  background-color: var(--accent-primary);
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+.osk-ctrl-hide {
+  color: var(--text-secondary);
+}
+
+.osk-key {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 2px 3px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #27303f 0%, #1d2430 100%);
+  border: 1px solid #39465b;
+  border-bottom-width: 2px;
+  border-bottom-color: #11161e;
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  transition: transform 0.05s ease, background-color 0.06s ease, border-color 0.06s ease;
+}
+
+.osk-key:hover {
+  border-color: #4f617e;
+}
+
+.osk-key.is-pressed {
+  transform: translateY(1px);
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #93c5fd;
+  color: #ffffff;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.osk-key-top {
+  flex: 0 0 auto;
+  min-height: 28px;
+  min-width: 38px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, #212936 0%, #171d27 100%);
+}
+
+.osk-key-sub {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.osk-key.is-pressed .osk-key-sub {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.osk-key-main {
+  pointer-events: none;
+}
+
+.osk-key-mod,
+.osk-key-fn {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #212936 0%, #181e28 100%);
+  color: #cbd5e1;
+}
+
+.osk-key-mod.is-active {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.34) 0%, rgba(217, 119, 6, 0.28) 100%);
+  border-color: var(--accent-amber);
+  color: #fef08a;
+  box-shadow: inset 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+.osk-key-mod.is-locked {
+  background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
+  border-color: #fde68a;
+  color: #ffffff;
+}
+
+.osk-key-enter {
+  font-size: 11.5px;
+  font-weight: 700;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.28) 0%, rgba(37, 99, 235, 0.22) 100%);
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #dbeafe;
+}
+
+.osk-key-warn {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.2) 0%, rgba(180, 83, 9, 0.16) 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fde68a;
+}
+
+.osk-key-space {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+/* Full Mode Layout (QWERTY + Dedicated Inverted-T Arrows) */
+
+.osk-body-full {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.osk-qwerty {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.osk-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+}
+
+.osk-arrows-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.osk-arrows {
+  display: grid;
+  grid-template-columns: repeat(3, 42px);
+  grid-template-rows: repeat(2, 36px);
+  gap: 4px;
+}
+
+.osk-key-arrow {
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 14px;
+  background: linear-gradient(180deg, #242e3e 0%, #19212d 100%);
+  border-color: #41516a;
+  color: #e2e8f0;
+}
+
+.osk-arrow-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.osk-arrow-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.osk-arrow-down {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.osk-arrow-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+/* Compact Pad Mode (Thumb-Friendly Game / Navigation Controls) */
+
+.osk-body-pad {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 4px 2px 2px;
+}
+
+.osk-pad-left {
+  flex: 0 0 auto;
+}
+
+.osk-arrows-lg {
+  grid-template-columns: repeat(3, 54px);
+  grid-template-rows: repeat(2, 46px);
+  gap: 6px;
+}
+
+.osk-arrows-lg .osk-key-arrow {
+  font-size: 18px;
+  border-radius: 7px;
+}
+
+.osk-pad-actions {
+  flex: 1 1 auto;
+  max-width: 340px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.osk-pad-btn {
+  min-height: 46px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 7px;
+}
+
+.osk-pad-primary {
+  background: linear-gradient(180deg, #2a364a 0%, #1e2736 100%);
+  border-color: #4f6382;
+}
+
+/* ---- Responsive Breakpoints ---- */
+
+@media (max-width: 960px) {
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .control-divider {
+    display: none;
+  }
+  .viewport-area {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+  }
+  .screen-container {
+    height: auto;
+  }
+  .crt-bezel {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+  .screen-container:fullscreen,
+  .screen-container:fullscreen .crt-bezel {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .drives-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .osk-body-full {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .osk-arrows-wrap {
+    align-self: center;
+  }
+}
+
+
+.osk-dock { flex: 0 0 auto; }

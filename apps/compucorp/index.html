@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compucorp 665 Emulator</title>
-  <link rel="stylesheet" href="./style.css?v=3">
+  <link rel="stylesheet" href="./style.css?v=5">
 </head>
 <body>
   <div id="app-shell" class="app-shell">
@@ -25,7 +25,7 @@
         <div class="control-group">
           <button id="btn-power" type="button" class="btn btn-primary" title="Power On or Power Off the Compucorp 665">
             <span class="btn-icon" aria-hidden="true">&#x23FB;</span>
-            <span id="btn-power-text">Power On</span>
+            <span id="btn-power-text">Power</span>
           </button>
           <button id="btn-reset" type="button" class="btn" title="Soft Reset (Alt+R) &middot; Shift+Click for Hard Restart" disabled>
             <span class="btn-icon" aria-hidden="true">&#x21BB;</span>
@@ -49,7 +49,8 @@
             <span>Library</span>
             <span id="library-count-badge" class="pill-count" hidden>0</span>
           </button>
-          <button id="btn-keystrip" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle Omega 20-key function keystrip (Alt+K)">
+          <button id="btn-keys" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle keyboard (Alt+K)">Keys</button>
+          <button id="btn-keystrip" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle Omega 20-key function keystrip">
             <span class="btn-icon" aria-hidden="true">&#x2328;</span>
             <span>Keystrip</span>
           </button>
@@ -101,6 +102,8 @@
           </div>
         </div>
 
+        <section id="osk-dock" class="osk-dock" aria-label="On-screen keyboard" hidden></section>
+
         <!-- Live Hardware Status Bar (mirrors cc665.c SDL status line) -->
         <div id="hardware-status-bar" class="hardware-status-bar" role="status" aria-label="Hardware telemetry">
           <div class="hw-status-left">
@@ -128,7 +131,7 @@
               </button>
               <span id="keystrip-hint" class="keystrip-hint">Click to send Omega function key &middot; F1&ndash;F10 &amp; Alt+F1&ndash;F10</span>
             </div>
-            <button id="btn-keystrip-close" type="button" class="btn-close btn-close-sm" title="Hide Keystrip (Alt+K)" aria-label="Hide Omega Keystrip">&times;</button>
+            <button id="btn-keystrip-close" type="button" class="btn-close btn-close-sm" title="Hide Keystrip" aria-label="Hide Omega Keystrip">&times;</button>
           </div>
           <div id="keystrip-grid" class="keystrip-grid" role="group" aria-label="Omega function keys"></div>
         </section>
@@ -478,7 +481,7 @@
 
         <div class="about-callout">
           <strong>Omega Quick Start:</strong> Drive <code>A:</code> holds <code>boot.img</code> (Omega Boot Disk) and Drive <code>B:</code> holds <code>docs.img</code> (Document Disk).
-          Click <strong>Power On</strong>. At real speed, booting takes <strong>~119 seconds</strong> (screen stays blank for the final minute while loading overlays); toggle <strong>Fast</strong> (<kbd>Alt</kbd>+<kbd>F</kbd> or <kbd>ScrollLock</kbd>) to boot in <strong>~1 second</strong>!
+          Click <strong>Power</strong>. At real speed, booting takes <strong>~119 seconds</strong> (screen stays blank for the final minute while loading overlays); toggle <strong>Fast</strong> (<kbd>Alt</kbd>+<kbd>F</kbd> or <kbd>ScrollLock</kbd>) to boot in <strong>~1 second</strong>!
           At the prompts, enter Time (<code>10/30 AM</code> or <kbd>Enter</kbd>) and Date (<code>11/24/26</code> or <kbd>Enter</kbd>) to open a blank Omega page.
         </div>
 
@@ -556,6 +559,6 @@
     </div>
   </div>
 
-  <script type="module" src="./ui.js?v=3"></script>
+  <script type="module" src="./ui.js?v=5"></script>
 </body>
 </html>
