@@ -1,0 +1,29 @@
+{
+  "upstream_site": "https://spritetm.github.io/plexus_20_emu/",
+  "source_repository": "https://github.com/Spritetm/plexus_20_emu",
+  "source_head_at_sync": "6ed08d6e05c30f75c01803d8acdb7cad274d74da",
+  "snapshot_sha256": "de11f1cf07dd30c2810f4d312e5c07c0f1eee34c33b0f8c634d09a29125db01a",
+  "rom_and_disk_source": "https://github.com/misterblack1/plexus-p20",
+  "data_bundle": "plexem.data contains U15-MERGED.BIN, U17-MERGED.BIN and plexus-sanitized.img",
+  "sha256": {
+    "LICENSE.txt": "8bd096dfa72774bdeb0e233c68dc4f331bb1ffbc49578d8c4ad8916331f46820",
+    "UPSTREAM-README.md": "ea857083d9138dee7851af4d74b5b40376b0e5f7de9009f1b772b84554b9edc0",
+    "index.html": "368e309a6e4c898f84963650410668a5dcded80ee871b633f0cb5d797946b226",
+    "licenses/Musashi-readme.txt": "e777e9d5e36069676fa37daae6bb32a3e6ecb069d8f41a48fb9adcc06a0c5998",
+    "licenses/softfloat.c": "a9249098c1be64f346a20d72250be47e779764819afed2c6ecce7f8687476db6",
+    "plexem.css": "598b96a330d277873b28e651efcab7ff850de06e5b4d5a32af2cfaa8c476fbae",
+    "plexem.data": "8b7946c6c3429a631d2d429d0f7b1ed1ba8d9a8007d331207db973ec925b8f22",
+    "plexem.mjs": "ae7a4c8e72e6ebcc5bc5639912c66915f1cc08039983ed902262ac5d368e5e0d",
+    "plexem.wasm": "bd401fa57971a157edecfcfd548db6f6effa34641f7e2492aefe294346867444",
+    "plexem.wasm.map": "1c3e8b8b18ae629a4c6b72937d98796fc23e93bb2c826238536e9a623865e69e",
+    "xterm/LICENSE": "b569f629d00f2626a8100df2a1798210535621e42164dfd426a6fe5aac7b0ccd",
+    "xterm/css/xterm.css": "8ec01c834e8317e9214cc5b1ac47c2e6cb90ed74dc18c23e25904b2825af63f4",
+    "xterm/lib/xterm.js": "323bac53f364f9248f08c10c8daaeac91e848b5d413135b5b6c78d8dd255ef4c",
+    "xterm/lib/xterm.js.map": "398f5f35a792fc5d84c8856590f1e0af9507074f1223440bf6c6bde6d541128a",
+    "xterm/package.json": "619d420be4a6a8967194557455d2228e59045765e54847d3f3783435cb10caf8",
+    "xterm-pty/LICENSE.txt": "45c32f09070ea64647927a671b0c150467e25319d31b9d38fb68e0b149d82268",
+    "xterm-pty/index.js": "d242a568a3b1ef487ede00e10108edbc4b9fd93de12db0ef694c9b81e691c649",
+    "xterm-pty/index.js.map": "874d816ccdc140fd09ddac9b95e4d8f83557867afeb5b73aacd15385d2a224d0",
+    "xterm-pty/package.json": "da7706707f738d8b92e718c18de2217a118dcb78415870cba5f75b6c8b52acff"
+  }
+}

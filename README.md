@@ -9,6 +9,7 @@ Each emulator gets a desktop icon and a dock entry, and runs in its own window.
 | --- | --- | --- |
 | Compucorp 665 | `private-development/Compucorp` (`emu/web`) | [#/compucorp](https://k6lcm.github.io/adb-web-emus/#/compucorp) |
 | Lobo MAX-80 | [k6lcm/max80-web](https://github.com/k6lcm/max80-web) | [#/max80](https://k6lcm.github.io/adb-web-emus/#/max80) |
+| Plexus P/20 | [Spritetm/plexus_20_emu](https://github.com/Spritetm/plexus_20_emu) | [#/plexus](https://k6lcm.github.io/adb-web-emus/#/plexus) |
 
 ## How it works
 
@@ -51,6 +52,31 @@ git add apps/compucorp && git commit -m "Sync Compucorp 665" && git push
 
 > Everything in this repo is public, including ROMs and disk images in
 > `apps/`. Only sync builds that are cleared for redistribution.
+
+**Plexus P/20:** mirror the upstream published WebAssembly build and all its
+runtime dependencies, then copy it with `tools/sync-app.sh`:
+
+```sh
+python3 tools/sync-plexus.py
+git add apps/plexus && git commit -m "Sync Plexus P/20" && git push
+```
+
+The copy runs entirely from `apps/plexus/`; it does not need Sprite_tm's site
+at runtime. `plexem.data` is about 76.5 MB (73 MiB) and bundles both boot ROMs
+and Adrian Black's sanitized UNIX disk image. These are republished here as
+part of the upstream build. The emulator code's MIT license does not establish
+a separate license for the original ROMs or UNIX software. The original About
+and troubleshooting dialogs, upstream license, Musashi/SoftFloat notices, and
+xterm/xterm-pty licenses are preserved. `build-info.json` records SHA-256 hashes
+of the downloaded files; the source HEAD recorded there is informational and
+is not a claim about the exact source revision used for the published build.
+
+On first launch, wait for the disk download and about 30 seconds of self-test
+(or type `!` to skip self-test). Press Enter at `PLEXUS PRIMARY BOOT` to boot
+UNIX. `init 2` starts multiuser mode; log in as `root` with no password. Disk
+changes are stored in the visitor's browser, separate from the upstream site.
+Closing the window ends the running instance. Clearing browser site data also
+clears saved disk changes.
 
 ## Adding an emulator
 

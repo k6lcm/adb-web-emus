@@ -15,6 +15,14 @@
       "icon": "icons/max80.svg",
       "path": "apps/max80/",
       "window": { "width": 1100, "height": 820 }
+    },
+    {
+      "id": "plexus",
+      "name": "Plexus P/20",
+      "description": "Plexus P/20 UNIX server (dual Motorola 68010), by Sprite_tm",
+      "icon": "icons/plexus.svg",
+      "path": "apps/plexus/",
+      "window": { "width": 900, "height": 650 }
     }
   ]
 }
