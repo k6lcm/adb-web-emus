@@ -93,7 +93,7 @@ void main() {
 
   // Soft neon haze along the far edge of the floor.
   float depth = s.y - ${HORIZON_Y.toFixed(2)};
-  floorCol += MAGENTA * 0.35 * pulse * exp(-max(depth, 0.0) / 28.0) * uPulse;
+  floorCol += MAGENTA * 0.35 * uPulse * exp(-max(depth, 0.0) / 28.0);
 
   float onFloor = smoothstep(-0.6, 0.6, depth * uScale);
   vec3 col = mix(sky, floorCol, onFloor);
