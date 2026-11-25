@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 400 160" role="img" aria-labelledby="title desc">
+  <title id="title">Lobo Systems</title>
+  <desc id="desc">The slanted LOBO wordmark above SYSTEMS, with a seated howling wolf at the right. Redrawn as clean vector paths.</desc>
+  <g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Sweeping L, tilted O, and two-bowl B. -->
+    <path d="M13 12 48 78C58 96 70 104 88 104H124"/>
+    <path d="M104 14C82 7 66 19 71 42C76 66 91 84 112 85C134 87 146 71 141 50C137 31 122 18 104 14Z"/>
+    <path d="M152 14H186C203 14 216 17 220 28C224 38 217 46 203 46H172M152 14 190 85H218C236 85 248 78 245 66C242 55 225 46 203 46"/>
+    <path d="M301 14C279 7 261 20 265 41C269 63 285 82 306 86C328 90 342 75 338 54C334 34 319 19 301 14Z"/>
+  </g>
+  <!-- Geometric SYSTEMS lettering: paths rather than installed fonts. -->
+  <g transform="translate(-1.5 0) scale(1.15 1)" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="bevel">
+    <path d="M34 118H17L12 122V126L32 131V136L27 140H10"/>
+    <path d="M45 118 57 130 69 118M57 130V140"/>
+    <path d="M103 118H86L81 122V126L101 131V136L96 140H79"/>
+    <path d="M114 118H141M127.5 118V140"/>
+    <path d="M177 118H153V140H177M153 129H173"/>
+    <path d="M191 140V118H196L208 131 220 118H225V140"/>
+    <path d="M264 118H247L242 122V126L262 131V136L257 140H240"/>
+  </g>
+  <!-- Wolf silhouette and negative-space fur/limb details. -->
+  <path fill="#fff" d="M294 31 305 42 319 51 322 65 328 57 332 76 329 87C341 92 352 101 360 111C367 119 372 133 380 144L387 150Q390 156 382 157H356L343 154 328 158 314 156Q310 153 315 150L322 146 321 126 314 120C305 111 305 102 306 94L302 85 307 72 307 64 300 60 293 53 290 48 297 46Z"/>
+  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M299 44 309 54 317 56M313 64 319 69 314 81 318 86" stroke-width="2.4"/>
+    <path d="m323 69 3 6-4 8m-12 9 7 8-2 8 9 7m-4-23 7 5 6-1m-3 7 9 4 3-2" stroke-width="2"/>
+    <path d="M331 112 329 137 330 148 324 151M340 115 339 138 344 150M358 122C347 126 346 139 355 145L365 149 376 150" stroke-width="3"/>
+    <path d="m347 108 6 5m-9 9 4-1m17 10 4 7m-12-21 3 5" stroke-width="2"/>
+  </g>
+  <circle cx="316" cy="62" r="1.6" fill="#000"/>
+</svg>
