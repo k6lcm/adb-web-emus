@@ -30,6 +30,8 @@ const GRID_Z = 3085.0;       // depth constant: Z = GRID_Z / (y - VANISH_Y)
 const CRUISE = 0.32;         // cells per second once settled
 const INTRO_BOOST = 2.6;     // extra cells travelled during the intro rush
 const INTRO_TAU = 0.7;       // seconds
+const STOP_AT = 6;           // the grid eases to a halt by this time (seconds)
+const EASE_OUT = 2;          // seconds spent slowing down
 const ZOOM_DELAY = 0.15;
 const ZOOM_TIME = 1.5;
 
@@ -53,7 +55,7 @@ uniform vec2 uRes;
 uniform float uScale;     // pixels per still unit
 uniform vec2 uOrigin;     // pixel position of still (0,0), top-down
 uniform float uScroll;    // floor scroll, in cells
-uniform float uTime;
+uniform float uPulse;   // horizon haze strength
 uniform float uFade;
 
 const vec3 GROUND = vec3(22.0, 3.0, 35.0) / 255.0;
@@ -91,8 +93,7 @@ void main() {
 
   // Soft neon haze along the far edge of the floor.
   float depth = s.y - ${HORIZON_Y.toFixed(2)};
-  float pulse = 0.85 + 0.15 * sin(uTime * 1.3);
-  floorCol += MAGENTA * 0.35 * pulse * exp(-max(depth, 0.0) / 28.0);
+  floorCol += MAGENTA * 0.35 * pulse * exp(-max(depth, 0.0) / 28.0) * uPulse;
 
   float onFloor = smoothstep(-0.6, 0.6, depth * uScale);
   vec3 col = mix(sky, floorCol, onFloor);
@@ -166,6 +167,22 @@ function easeOutBack(x) {
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
+// Distance the floor has scrolled by time t: an intro rush, a steady cruise,
+// then a smooth slow-down that stops completely at STOP_AT.
+function scrollAt(t) {
+  t = Math.min(t, STOP_AT);
+  const brake = STOP_AT - EASE_OUT;
+  const u = clamp01((t - brake) / EASE_OUT);
+  const cruise = Math.min(t, brake) + EASE_OUT * (u - u ** 3 + u ** 4 / 2);
+  return CRUISE * cruise + INTRO_BOOST * (1 - Math.exp(-t / INTRO_TAU));
+}
+
+// Horizon haze breathes while the grid moves and settles when it stops.
+function pulseAt(t) {
+  const fade = 1 - clamp01((t - (STOP_AT - EASE_OUT)) / EASE_OUT);
+  return 0.85 + 0.15 * Math.sin(Math.min(t, STOP_AT) * 1.3) * fade;
+}
+
 export async function startWallpaper(desktop) {
   const fallback = () => desktop.classList.add('wallpaper-static');
   const canvas = document.createElement('canvas');
@@ -229,7 +246,7 @@ export async function startWallpaper(desktop) {
     const W = canvas.width, H = canvas.height;
     const still = reduceMotion.matches;
     if (start === null) start = now;
-    const t = still ? 1e3 : (now - start) / 1000;
+    const t = still ? STOP_AT : (now - start) / 1000;
 
     // Cover-fit the still, so the scene always fills the desktop.
     const k = Math.max(W / STILL_W, H / STILL_H);
@@ -243,8 +260,8 @@ export async function startWallpaper(desktop) {
     gl.uniform1f(scene.u.uFull, 1);
     gl.uniform1f(scene.u.uScale, k);
     gl.uniform2f(scene.u.uOrigin, ox, oy);
-    gl.uniform1f(scene.u.uScroll, still ? 0 : CRUISE * t + INTRO_BOOST * (1 - Math.exp(-t / INTRO_TAU)));
-    gl.uniform1f(scene.u.uTime, still ? 0 : t);
+    gl.uniform1f(scene.u.uScroll, still ? 0 : scrollAt(t));
+    gl.uniform1f(scene.u.uPulse, still ? 0.85 : pulseAt(t));
     gl.uniform1f(scene.u.uFade, still ? 1 : clamp01(t / 0.4));
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, skyTex);
@@ -273,7 +290,9 @@ export async function startWallpaper(desktop) {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
-    raf = still ? 0 : requestAnimationFrame(draw);
+    // Once everything has settled, only redraw on resize.
+    const done = still || t >= Math.max(STOP_AT, ZOOM_DELAY + ZOOM_TIME);
+    raf = done ? 0 : requestAnimationFrame(draw);
   }
 
   const redraw = () => { if (!raf) raf = requestAnimationFrame(draw); };
