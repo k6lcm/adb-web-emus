@@ -147,7 +147,7 @@ export class Max80Emulator {
 	async init({
 		canvas,
 		romUrl = './max80.e12',
-		logoUrl = './lobo_logo.png',
+		logoUrl = './lobo_logo.svg',
 		onStateChange = () => {},
 		onError = () => {},
 	} = {}) {
