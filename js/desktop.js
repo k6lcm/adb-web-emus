@@ -3,6 +3,8 @@
 // inside an iframe in its own window, so emulators never share globals,
 // audio contexts or keyboard handlers.
 
+import { startWallpaper } from './wallpaper.js';
+
 const TOPBAR_H = 32;          // keep in sync with --topbar-h in desktop.css
 const MIN_W = 320;
 const MIN_H = 200;
@@ -636,6 +638,10 @@ function showMessage(text) {
 }
 
 async function boot() {
+  startWallpaper($('#desktop')).catch((err) => {
+    console.warn('Wallpaper failed:', err);
+    $('#desktop').classList.add('wallpaper-static');
+  });
   applyMobile();
   startClock();
   setupSystemMenu();
