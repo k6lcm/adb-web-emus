@@ -1575,7 +1575,7 @@ async function bootstrap() {
     await emu.init({
       canvas: dom.canvas,
       romUrl: './max80.e12',
-      logoUrl: './lobo_logo.svg',
+      logoUrl: './lobo_logo.png',
       onStateChange: () => {
         renderAll();
       },
