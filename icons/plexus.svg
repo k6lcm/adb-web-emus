@@ -1,30 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
-  <title id="title">Plexus P/20</title>
-  <desc id="desc">Ivory floor-standing UNIX cabinet with two vertical drives, embossed Plexus lettering and a black status panel.</desc>
-  <defs><linearGradient id="shell" x1="0" y1="0" x2="0.3" y2="1"><stop stop-color="#efedda"/><stop offset="1" stop-color="#bbbba5"/></linearGradient><linearGradient id="side" x1="0" y1="0" x2="0.3" y2="1"><stop stop-color="#c6c7b3"/><stop offset="1" stop-color="#909987"/></linearGradient><linearGradient id="bay" x1="0" y1="0" x2="0.3" y2="1"><stop stop-color="#3c4545"/><stop offset="1" stop-color="#151e24"/></linearGradient></defs>
-  
-<ellipse cx="83" cy="148" rx="48" ry="6" fill="#07101c" opacity=".24"/>
-<path d="M38 28L61 10l65 5-16 20z" fill="#f0efde" stroke="#dedfcd"/>
-<path d="M38 28l22-16v123l-22 10z" fill="url(#side)" stroke="#858e7f" stroke-width=".8"/>
-<path d="M59 12l67 3v126l-67 5z" fill="url(#shell)" stroke="#a6ab97" stroke-width="1"/>
-<path d="M63 20l58 3v46l-58-1z" fill="#818977"/>
-<path d="M67 24l50 2v38l-50-1z" fill="url(#bay)" stroke="#27332f"/>
-<g fill="#20292d" stroke="#555e58" stroke-width=".6">
-<path d="M71 27h19v33H71z"/><path d="M94 28h19v33H94z"/>
-</g>
-<path d="M82 30v25m21-24v26" stroke="#090f15" stroke-width="2"/>
-<path d="M77 42h10v4H77zm22-11h10v4H99z" fill="#626c68" stroke="#151e23" stroke-width=".8"/>
-<circle cx="74" cy="31" r="1" fill="#b85847"/>
-<circle cx="108" cy="57" r="1" fill="#b85847"/>
-<path d="M60 73l65 1" stroke="#7e8877" stroke-width="1.5"/>
-<rect x="109" y="80" width="10" height="33" rx="1.4" fill="#26302e"/>
-<text x="114" y="86" text-anchor="middle" font-family="Arial,sans-serif" font-size="3.5" fill="#e8e9d5">P/20</text>
-<path d="M112 91h2m-2 4h2m-2 4h2m-2 4h2" stroke="#a6b8a3" stroke-width="1"/>
-<circle cx="114" cy="109" r="2" fill="#929d8e" stroke="#18251e" stroke-width=".6"/>
-<g transform="translate(83 136) rotate(-90)">
-<text x="0" y="0" font-family="Arial,sans-serif" font-size="15" font-weight="bold" letter-spacing="1" fill="none" stroke="#919b86" stroke-width=".7">PLEXUS</text>
-<text x=".7" y=".7" font-family="Arial,sans-serif" font-size="15" font-weight="bold" letter-spacing="1" fill="none" stroke="#f3f0dc" stroke-width=".7">PLEXUS</text>
-</g>
-<path d="M60 143l65-5v5l-65 5zM38 142l21 2v5l-21-2z" fill="#303c35"/>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+<defs>
+<linearGradient id="pFront" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1ebd9"/><stop offset="1" stop-color="#d9d0b8"/></linearGradient>
+<linearGradient id="pSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9bfa5"/><stop offset="1" stop-color="#b3a88d"/></linearGradient>
+<linearGradient id="pBay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1c1f"/><stop offset="1" stop-color="#2c2c30"/></linearGradient>
+</defs>
+<ellipse cx="82" cy="145" rx="52" ry="6" fill="#000" opacity=".28"/>
+<polygon points="34,19 52,12 52,144 34,139" fill="url(#pSide)" stroke="#5e5444" stroke-width="1.4" stroke-linejoin="round"/>
+<line x1="34" y1="63" x2="52" y2="60" stroke="#8c816a" stroke-width="1.4"/>
+<rect x="52" y="12" width="78" height="47" rx="2.5" fill="url(#pFront)" stroke="#5e5444" stroke-width="1.4"/>
+<rect x="58" y="17" width="66" height="37" rx="2" fill="#bdb299"/>
+<rect x="60" y="19" width="62" height="33" rx="1.2" fill="url(#pBay)"/>
+<rect x="63" y="22" width="27" height="27" rx="1" fill="#252528" stroke="#3d3d42" stroke-width=".8"/>
+<rect x="75" y="25" width="3" height="21" rx="1" fill="#0b0b0c"/>
+<rect x="71" y="32" width="11" height="5" rx="1.2" fill="#4a4b50"/><rect x="71" y="32" width="11" height="1.6" rx=".8" fill="#76787e"/>
+<circle cx="67" cy="26" r="1.4" fill="#e0402d"/>
+<rect x="93" y="22" width="26" height="27" rx="1" fill="#252528" stroke="#3d3d42" stroke-width=".8"/>
+<g stroke="#121214" stroke-width="1.5"><line x1="100" y1="25" x2="100" y2="46"/><line x1="104" y1="25" x2="104" y2="46"/><line x1="108" y1="25" x2="108" y2="46"/></g>
+<rect x="111" y="23.5" width="6" height="3" rx=".8" fill="#4a4b50"/>
+<circle cx="115" cy="45" r="1.3" fill="#e0402d"/>
+<rect x="52" y="61" width="78" height="83" rx="2.5" fill="url(#pFront)" stroke="#5e5444" stroke-width="1.4"/>
+<line x1="54" y1="62.6" x2="128" y2="62.6" stroke="#fffbf0" stroke-width="1"/>
+<g transform="translate(74 134) rotate(-90) scale(1.02 1.15)" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fffcf2" stroke-width="3.2" transform="translate(-.6 -.6)"><path d="M0 14V0H6.5A3.8 3.8 0 0 1 6.5 7.6H0" transform="translate(0 0)"/><path d="M0 0V14H8" transform="translate(11.2 0)"/><path d="M8 0H0V14H8M0 7H6.5" transform="translate(22.4 0)"/><path d="M0 0L8 14M8 0L0 14" transform="translate(33.599999999999994 0)"/><path d="M0 0V9.5A4 4 0 0 0 8 9.5V0" transform="translate(44.8 0)"/><path d="M8 1.6C6 -.6 0 -.4 .4 3.4C.8 7 8 6.2 8 10.4C8 14.6 1.6 14.8 0 12.4" transform="translate(56.0 0)"/></g><g stroke="#a89d82" stroke-width="3.2" transform="translate(.6 .6)"><path d="M0 14V0H6.5A3.8 3.8 0 0 1 6.5 7.6H0" transform="translate(0 0)"/><path d="M0 0V14H8" transform="translate(11.2 0)"/><path d="M8 0H0V14H8M0 7H6.5" transform="translate(22.4 0)"/><path d="M0 0L8 14M8 0L0 14" transform="translate(33.599999999999994 0)"/><path d="M0 0V9.5A4 4 0 0 0 8 9.5V0" transform="translate(44.8 0)"/><path d="M8 1.6C6 -.6 0 -.4 .4 3.4C.8 7 8 6.2 8 10.4C8 14.6 1.6 14.8 0 12.4" transform="translate(56.0 0)"/></g><g stroke="#e6dec9" stroke-width="2"><path d="M0 14V0H6.5A3.8 3.8 0 0 1 6.5 7.6H0" transform="translate(0 0)"/><path d="M0 0V14H8" transform="translate(11.2 0)"/><path d="M8 0H0V14H8M0 7H6.5" transform="translate(22.4 0)"/><path d="M0 0L8 14M8 0L0 14" transform="translate(33.599999999999994 0)"/><path d="M0 0V9.5A4 4 0 0 0 8 9.5V0" transform="translate(44.8 0)"/><path d="M8 1.6C6 -.6 0 -.4 .4 3.4C.8 7 8 6.2 8 10.4C8 14.6 1.6 14.8 0 12.4" transform="translate(56.0 0)"/></g></g>
+<rect x="112" y="70" width="11" height="58" rx="1.5" fill="#1b1b1e" stroke="#0e0e10" stroke-width=".8"/>
+<rect x="114" y="73" width="7" height="3" rx=".6" fill="#d8d4c8"/>
+<circle cx="117.5" cy="82" r="1.25" fill="#55d26a"/>
+<circle cx="117.5" cy="88" r="1.25" fill="#55d26a"/>
+<circle cx="117.5" cy="94" r="1.25" fill="#f2b233"/>
+<circle cx="117.5" cy="100" r="1.25" fill="#f2b233"/>
+<circle cx="117.5" cy="106" r="1.25" fill="#e0402d"/>
+<circle cx="117.5" cy="119" r="3" fill="#9a9ca2" stroke="#d6d8dc" stroke-width=".8"/><rect x="117" y="116.6" width="1" height="4.8" fill="#2a2a2d"/>
+<rect x="56" y="143" width="70" height="4" rx="1" fill="#2a2a2d"/>
 </svg>
