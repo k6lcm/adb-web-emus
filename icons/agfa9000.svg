@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+<defs>
+<linearGradient id="aTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5efe0"/><stop offset="1" stop-color="#dfd6be"/></linearGradient>
+<linearGradient id="aFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ede6d3"/><stop offset="1" stop-color="#d4cab0"/></linearGradient>
+<linearGradient id="aBay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#222429"/><stop offset="1" stop-color="#17191d"/></linearGradient>
+<linearGradient id="aRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ef4d3a"/><stop offset="1" stop-color="#b92517"/></linearGradient>
+</defs>
+<ellipse cx="80" cy="128" rx="70" ry="7" fill="#000" opacity=".28"/>
+<polygon points="24,42 136,42 148,63 12,63" fill="url(#aTop)" stroke="#5e5444" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="25" y1="43.3" x2="135" y2="43.3" stroke="#fffcf2" stroke-width="1.1"/>
+<g stroke="#b8ae95" stroke-width="1.3" stroke-linecap="round">
+<line x1="34" y1="48" x2="72" y2="48"/>
+<line x1="32" y1="52" x2="71" y2="52"/>
+<line x1="30" y1="56" x2="70" y2="56"/>
+</g>
+<rect x="12" y="63" width="136" height="58" rx="2.5" fill="url(#aFront)" stroke="#5e5444" stroke-width="1.5"/>
+<line x1="14" y1="64.6" x2="146" y2="64.6" stroke="#fffbf0" stroke-width="1.1"/>
+<rect x="18" y="70" width="70" height="32" rx="1.6" fill="#c7bda4" stroke="#8a7f68" stroke-width=".8"/>
+<g stroke="#4a4438" stroke-width="1.6" stroke-linecap="round">
+<line x1="24" y1="75" x2="24" y2="97"/>
+<line x1="29" y1="75" x2="29" y2="97"/>
+<line x1="34" y1="75" x2="34" y2="97"/>
+<line x1="39" y1="75" x2="39" y2="97"/>
+<line x1="44" y1="75" x2="44" y2="97"/>
+<line x1="49" y1="75" x2="49" y2="97"/>
+<line x1="54" y1="75" x2="54" y2="97"/>
+<line x1="59" y1="75" x2="59" y2="97"/>
+<line x1="64" y1="75" x2="64" y2="97"/>
+<line x1="69" y1="75" x2="69" y2="97"/>
+<line x1="74" y1="75" x2="74" y2="97"/>
+<line x1="79" y1="75" x2="79" y2="97"/>
+<line x1="84" y1="75" x2="84" y2="97"/>
+</g>
+<rect x="18" y="106" width="38" height="9" rx="1.4" fill="#1e2024" stroke="#4d483e" stroke-width=".8"/>
+<polygon points="22,110.5 26,107.8 30,110.5 26,113.2" fill="#e54836"/>
+<rect x="33" y="109" width="19" height="1.6" rx=".6" fill="#e8e1ce"/>
+<rect x="33" y="111.7" width="13" height="1.3" rx=".5" fill="#9ea4ae"/>
+<rect x="93" y="70" width="49" height="32" rx="1.6" fill="url(#aBay)" stroke="#4c473e" stroke-width="1"/>
+<rect x="97" y="74" width="41" height="11" rx="1" fill="#2a2d33" stroke="#3f434c" stroke-width=".7"/>
+<rect x="101" y="78.5" width="26" height="2.4" rx=".8" fill="#0d0e11"/>
+<circle cx="133" cy="79.5" r="1.6" fill="#55d26a"/>
+<rect x="97" y="88" width="41" height="10" rx="1" fill="#26292f" stroke="#3b3f47" stroke-width=".7"/>
+<circle cx="104" cy="93" r="1.6" fill="#55d26a"/>
+<circle cx="111" cy="93" r="1.6" fill="#f59e0b"/>
+<circle cx="118" cy="93" r="1.6" fill="#38bdf8"/>
+<circle cx="131" cy="93" r="3" fill="#8b909a" stroke="#cfd3da" stroke-width=".8"/>
+<rect x="130.4" y="90.8" width="1.2" height="4.4" fill="#22252a"/>
+<rect x="128" y="106" width="14" height="9" rx="1.5" fill="#202226" stroke="#5e5444" stroke-width=".9"/>
+<rect x="130" y="107.6" width="10" height="5.8" rx="1" fill="url(#aRed)"/>
+<rect x="130.5" y="108.1" width="9" height="1.8" rx=".6" fill="#ff9486" opacity=".5"/>
+<rect x="18" y="121" width="14" height="3.5" rx="1" fill="#242529"/>
+<rect x="128" y="121" width="14" height="3.5" rx="1" fill="#242529"/>
+</svg>

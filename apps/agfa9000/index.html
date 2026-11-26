@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agfa 9000PS Emulator</title>
+  <link rel="stylesheet" href="./xterm/css/xterm.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app-shell" class="app-shell">
+    <!-- Top Control Bar -->
+    <header class="topbar" role="banner">
+      <div class="topbar-brand">
+        <div class="brand-logo" aria-hidden="true">AGFA 9000PS</div>
+        <div class="brand-meta">
+          <span class="brand-subtitle">68020 · VERA</span>
+          <span id="power-badge" class="status-badge" aria-live="polite">
+            <span class="status-dot"></span>
+            <span id="power-badge-text">OFF</span>
+          </span>
+          <span id="scsi-badge" class="scsi-badge" title="NCR 5380 SCSI disk activity">
+            <span class="scsi-led"></span>
+            <span>SCSI</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="topbar-controls" role="toolbar" aria-label="Emulator controls">
+        <div class="control-group">
+          <label for="boot-select" class="sr-only">Boot target</label>
+          <select id="boot-select" class="select-control" title="Select ROM bank to boot">
+            <option value="minix">Boot: Minix 2.0.4</option>
+            <option value="cpm">Boot: CP/M-68K v1.6</option>
+            <option value="mon">Boot: AGFA-MON</option>
+          </select>
+          <button id="btn-power" type="button" class="btn btn-primary" title="Power On or Power Off">
+            <span id="btn-power-text">Power</span>
+          </button>
+          <button id="btn-restart" type="button" class="btn" title="Restart emulator (Alt+R)" disabled>
+            <span>Restart</span>
+          </button>
+          <button id="btn-fast" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle 3x Fast mode (Alt+F)">
+            <span>Fast</span>
+          </button>
+        </div>
+
+        <div class="control-divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <div class="segmented" role="group" aria-label="Display layout">
+            <button id="layout-split" type="button" class="seg-btn" data-layout="split" aria-pressed="true" title="Show VERA video and serial console side by side">Split</button>
+            <button id="layout-vera" type="button" class="seg-btn" data-layout="vera" aria-pressed="false" title="Focus on VERA 640x480 display">VERA</button>
+            <button id="layout-terminal" type="button" class="seg-btn" data-layout="terminal" aria-pressed="false" title="Focus on serial terminal">Serial</button>
+          </div>
+          <button id="btn-software" type="button" class="btn btn-accent" title="Browse included OS commands, games, and demos">
+            <span>Software</span>
+          </button>
+          <button id="btn-paste" type="button" class="btn" title="Paste text into the serial console">
+            <span>Paste</span>
+          </button>
+        </div>
+
+        <div class="control-divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <button id="btn-mute" type="button" class="btn btn-toggle" aria-pressed="false" title="Mute / Unmute VERA PSG+PCM audio">
+            <span id="btn-mute-text">Sound</span>
+          </button>
+          <button id="btn-fullscreen" type="button" class="btn" title="Toggle fullscreen VERA display">
+            <span>Fullscreen</span>
+          </button>
+          <button id="btn-settings" type="button" class="btn" title="Hardware, RAM, VERA, ROM &amp; SCSI disk settings">
+            <span>Settings</span>
+          </button>
+          <button id="btn-about" type="button" class="btn btn-icon-only" title="About &amp; Shortcuts" aria-label="About and Shortcuts">?</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Split Workspace: VERA Display + Serial Console -->
+    <main id="workspace" class="workspace" data-layout="split">
+      <!-- VERA Video Output -->
+      <section id="pane-vera" class="pane pane-vera" aria-label="VERA VGA display">
+        <div class="pane-header">
+          <div class="pane-title">
+            <span>VERA Display</span>
+            <span class="pane-tag">640×480 · PSG+PCM</span>
+          </div>
+          <div class="pane-actions">
+            <span id="vera-focus-pill" class="focus-pill">Click to send keys</span>
+            <button id="btn-vera-fs" type="button" class="btn btn-xs" title="Fullscreen VERA display">Max</button>
+          </div>
+        </div>
+        <div id="vera-stage" class="vera-stage" tabindex="0" aria-label="VERA 640 by 480 display canvas — click to direct keyboard input to the Agfa 9000PS">
+          <div class="vera-bezel">
+            <canvas id="vera-canvas" width="640" height="480"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Z8530 SCC Serial Console -->
+      <section id="pane-terminal" class="pane pane-terminal" aria-label="Z8530 SCC serial console">
+        <div class="pane-header">
+          <div class="pane-title">
+            <span>Serial Console</span>
+            <span class="pane-tag">Z8530 SCC</span>
+          </div>
+          <div class="pane-actions">
+            <button id="btn-quick-root" type="button" class="btn btn-xs" title="Send 'root' + Enter to log in to Minix">Login: root</button>
+            <button id="btn-quick-ctrlc" type="button" class="btn btn-xs" title="Send Ctrl+C (SIGINT) to running program">Ctrl+C</button>
+            <button id="btn-term-clear" type="button" class="btn btn-xs" title="Clear local terminal scrollback">Clear</button>
+          </div>
+        </div>
+        <div class="terminal-stage">
+          <div id="terminal-container"></div>
+        </div>
+      </section>
+
+      <!-- First-boot Download & Decompression Overlay -->
+      <div id="loading-overlay" class="loading-overlay" hidden>
+        <div class="loading-card" role="status" aria-live="polite">
+          <h2 class="loading-title">Starting Agfa 9000PS</h2>
+          <p id="loading-label" class="loading-label">Preparing ROM and SCSI disk image…</p>
+          <div class="progress-track">
+            <div id="loading-bar" class="progress-bar"></div>
+          </div>
+          <p class="loading-note">First launch downloads the 46 MiB compressed SCSI disk (171 MiB uncompressed). Restarts and OS switches are instant.</p>
+        </div>
+      </div>
+
+      <!-- Toasts -->
+      <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    </main>
+  </div>
+
+  <!-- Software & Quick Launch Modal -->
+  <div id="modal-software" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-software-title" hidden>
+    <div class="modal-panel modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-software-title" class="modal-title">Included Software &amp; Quick Commands</h2>
+          <p class="modal-subtitle">Click Send to type a command into the serial console, or switch OS banks from the top bar.</p>
+        </div>
+        <button id="btn-close-software" type="button" class="btn-close" aria-label="Close Software Guide">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <div class="sw-section-title">Minix 2.0.4 (Boot: Minix 2.0.4 · login as <code>root</code>)</div>
+          <div class="sw-grid">
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Doom (Shareware)</div>
+                <div class="sw-card-desc">Full shareware Doom on VERA 320×200 8bpp graphics. Click the VERA display to play.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">doom</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="doom&#13;" data-focus-vera="1">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Another World</div>
+                <div class="sw-card-desc">Classic cinematic platformer with VERA 4bpp video &amp; 11 kHz PCM audio.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">run /usr/games/aw.bin</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="run /usr/games/aw.bin&#13;" data-focus-vera="1">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">NES VGM Jukebox</div>
+                <div class="sw-card-desc">Plays ~4,500 NES chiptune tracks through VERA's 16-channel PSG + PCM audio.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">nesvgm /usr/games/nes.vwad</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="nesvgm /usr/games/nes.vwad&#13;">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Bad Apple Demo</div>
+                <div class="sw-card-desc">Streaming VERA video + PCM audio demo from the SCSI hard disk.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">bapl /usr/games/bad_apple.bapl</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="bapl /usr/games/bad_apple.bapl&#13;" data-focus-vera="1">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Conway's Life &amp; Gomoku</div>
+                <div class="sw-card-desc">Classic curses terminal games on Minix 2.0.4.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">life</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="life&#13;">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Native Toolchain</div>
+                <div class="sw-card-desc">Includes GNU cc1, cpp, as, yacc, flex, make, and standard UNIX tools.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">ls /usr/games</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="ls /usr/games&#13;">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sw-section-title">CP/M-68K v1.6 (Boot: CP/M-68K · Drives A:, C:–N:)</div>
+          <div class="sw-grid">
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">MojoZork (25 Infocom Games)</div>
+                <div class="sw-card-desc">Zork I/II/III, Hitchhiker's Guide, Planetfall, Enchanter, and 20 more in ZORK.WAD.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">C:ZORK</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="C:ZORK&#13;">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Colossal Cave Adventure</div>
+                <div class="sw-card-desc">Original text adventure on CP/M-68K SCSI drive C:.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">C:ADVENT</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="C:ADVENT&#13;">Send</button>
+              </div>
+            </div>
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">MicroEMACS 3.6 &amp; DRI SDK</div>
+                <div class="sw-card-desc">Full editor on C:, plus Digital Research C compiler &amp; assembler on D:–N:.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">DIR C:</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="DIR C:&#13;">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sw-section-title">AGFA-MON + EhBASIC (Boot: AGFA-MON · ~18s RAM test)</div>
+          <div class="sw-grid">
+            <div class="sw-card">
+              <div>
+                <div class="sw-card-name">Monitor Commands</div>
+                <div class="sw-card-desc">Run <code>G 20000</code> for CP/M-68K, <code>G 40000</code> for Minix, or <code>HELP</code> for monitor help.</div>
+              </div>
+              <div class="sw-card-footer">
+                <code class="sw-cmd">HELP</code>
+                <button type="button" class="btn btn-xs btn-primary" data-send-cmd="HELP&#13;">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="footer-note">Tip: Press Ctrl+C (or q) to exit Minix games and return to the shell.</span>
+        <button id="btn-software-done" type="button" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste Modal -->
+  <div id="modal-paste" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-paste-title" hidden>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-paste-title" class="modal-title">Paste to Serial Console</h2>
+          <p class="modal-subtitle">Text is paced into the Z8530 SCC receiver so long commands do not drop characters.</p>
+        </div>
+        <button id="btn-close-paste" type="button" class="btn-close" aria-label="Close Paste">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="paste-textarea" class="paste-textarea" placeholder="Paste commands or text here…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-paste-cancel" type="button" class="btn">Cancel</button>
+        <button id="btn-paste-send" type="button" class="btn btn-primary">Send to Console</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title" hidden>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-settings-title" class="modal-title">Agfa 9000PS Hardware Settings</h2>
+          <p class="modal-subtitle">Hardware changes take effect on the next restart.</p>
+        </div>
+        <button id="btn-close-settings" type="button" class="btn-close" aria-label="Close Settings">&times;</button>
+      </div>
+      <div class="modal-body">
+        <fieldset class="settings-group">
+          <legend>Main Board Configuration</legend>
+          <div class="setting-row">
+            <div class="setting-label">
+              <strong>System RAM</strong>
+              <span>Default is 4 MB (real 9000PS board configuration)</span>
+            </div>
+            <select id="setting-ram" class="select-control">
+              <option value="4">4 MB</option>
+              <option value="8">8 MB</option>
+              <option value="16">16 MB</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">
+              <strong>VERA Video &amp; Audio Module</strong>
+              <span>Replaces VIA #2 at 0x04000020 (required for Doom, Another World, NES VGM)</span>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input id="setting-vera" type="checkbox" checked>
+              <span>Enabled</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="settings-group">
+          <legend>SCSI Hard Disk (ID 0)</legend>
+          <div class="setting-row">
+            <div class="setting-label">
+              <strong id="settings-disk-name">disk.img.gz (171 MiB SCSI)</strong>
+              <span id="settings-disk-dirty">0 modified sectors saved in browser storage</span>
+            </div>
+            <button id="btn-reset-disk" type="button" class="btn btn-sm btn-danger">Reset Disk</button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">
+              <strong>Load Custom SCSI Image</strong>
+              <span>Attach a local .img or .img.gz image (512-byte sectors, session only)</span>
+            </div>
+            <button id="btn-load-disk" type="button" class="btn btn-sm">Choose Disk…</button>
+            <input id="input-custom-disk" type="file" accept=".img,.hda,.gz" class="sr-only">
+          </div>
+        </fieldset>
+
+        <fieldset class="settings-group">
+          <legend>ROM &amp; NVRAM</legend>
+          <div class="setting-row">
+            <div class="setting-label">
+              <strong id="settings-rom-name">Built-in 12-EPROM set</strong>
+              <span>Load a flat ROM binary (up to 640 KiB) for this session</span>
+            </div>
+            <button id="btn-load-rom" type="button" class="btn btn-sm">Choose ROM…</button>
+            <input id="input-custom-rom" type="file" accept=".rom,.bin" class="sr-only">
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">
+              <strong>Xicor X2804AP EEPROM (512 bytes)</strong>
+              <span>Persisted in browser localStorage</span>
+            </div>
+            <button id="btn-reset-eeprom" type="button" class="btn btn-sm">Erase EEPROM</button>
+          </div>
+        </fieldset>
+      </div>
+      <div class="modal-footer">
+        <span class="footer-note">Disk changes persist via IndexedDB copy-on-write sectors.</span>
+        <div style="display:flex;gap:8px;">
+          <button id="btn-settings-restart" type="button" class="btn btn-primary">Apply &amp; Restart</button>
+          <button id="btn-settings-close" type="button" class="btn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Modal -->
+  <div id="modal-about" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-about-title" hidden>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-about-title" class="modal-title">About Agfa 9000PS Web Emulator</h2>
+          <p class="modal-subtitle">Full-system Motorola 68020 + VERA emulator compiled to WebAssembly</p>
+        </div>
+        <button id="btn-close-about" type="button" class="btn-close" aria-label="Close About">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0;color:var(--text-secondary);">
+          Emulates the repurposed Agfa Compugraphic 9000PS PostScript RIP main board running
+          AGFA-MON, CP/M-68K v1.6, and Minix 2.0.4, complete with the Commander X16 VERA video/audio
+          module installed in the VIA #2 socket.
+        </p>
+        <ul class="about-specs">
+          <li><strong>CPU:</strong> Motorola 68020 @ 16 MHz (Musashi core + SoftFloat)</li>
+          <li><strong>ROM:</strong> 384 KiB across 12 split 27C256 EPROMs (AGFA-MON + EhBASIC, CP/M-68K, Minix 2.0.4)</li>
+          <li><strong>Storage:</strong> NCR AM5380 SCSI controller + 171 MiB disk image with IndexedDB copy-on-write persistence</li>
+          <li><strong>Serial:</strong> Zilog Z8530 SCC connected to xterm.js</li>
+          <li><strong>Video &amp; Audio:</strong> VERA 640×480 256-color display + 16-ch PSG &amp; PCM stereo audio</li>
+        </ul>
+        <div class="about-links" style="font-size:12.5px;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px;">
+          <div>Upstream emulator: <a href="https://github.com/fletto2/agfa_emus" target="_blank" rel="noopener">fletto2/agfa_emus</a></div>
+          <div>Third-party notices:
+            <a href="./licenses/Musashi-readme.txt" target="_blank" rel="noopener">Musashi (MIT)</a> ·
+            <a href="./licenses/VERA-LICENSE.txt" target="_blank" rel="noopener">VERA (BSD-2)</a> ·
+            <a href="./licenses/SoftFloat-LICENSE.txt" target="_blank" rel="noopener">SoftFloat</a> ·
+            <a href="./xterm/LICENSE" target="_blank" rel="noopener">xterm.js (MIT)</a>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="footer-note">Shortcuts: Alt+R Restart · Alt+F Fast · Click VERA to play games</span>
+        <button id="btn-about-close" type="button" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./xterm/lib/xterm.js"></script>
+  <script type="module" src="./ui.js"></script>
+</body>
+</html>

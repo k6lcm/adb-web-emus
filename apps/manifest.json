@@ -92,6 +92,36 @@
           "channel": "Adrian's Digital Basement ]["
         }
       ]
+    },
+    {
+      "id": "agfa9000",
+      "name": "Agfa 9000PS",
+      "description": "Agfa Compugraphic 9000PS RIP (Motorola 68020 + VERA), running Minix 2.0.4, CP/M-68K & AGFA-MON",
+      "icon": "icons/agfa9000.svg",
+      "path": "apps/agfa9000/",
+      "window": { "width": 1240, "height": 760 },
+      "videos": [
+        {
+          "id": "2rAgdZ9zBuA",
+          "title": "PC Archeology: This computer is not what I expected. (Agfa Compugraphic 9000PS)",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "iaiKg0bAWD0",
+          "title": "Troubleshooting and repurposing the Agfa Compugraphic 9000PS",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "--LbJZPreNc",
+          "title": "Reverse engineering the Agfa Compugraphic so I can fix it",
+          "channel": "Adrian's Digital Basement"
+        },
+        {
+          "id": "cltnlks2-uU",
+          "title": "We ran Doom on a 40 year old printer controller (Agfa Compugraphic 9000PS)",
+          "channel": "Adrian's Digital Basement"
+        }
+      ]
     }
   ]
 }
