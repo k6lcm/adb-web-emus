@@ -16,26 +16,75 @@ export const PHOSPHOR_RGB = {
 	amber: [255, 176, 0],
 };
 
+export const VIDEO_PROMS = new Set(['us', 'metric85', 'metric85g']);
+export const MAPPER_PORTS = new Set([0, 0xf5, 0xf4, 0x77]);
+
 const DEFAULT_SETTINGS = {
 	boards: 2,
+	mexBoards: 0,
 	mainsHz: 60,
 	fast: false,
 	romSwitch: false,
 	lowerPage: false,
+	pmReadback: false,
+	mapperPort: 0,
+	mapperCoversRom: false,
+	pb5: false,
+	jt1: false,
+	ctc3: false,
+	c60: false,
+	videoProm: 'us',
+	xcpmKeys: false,
+	drivePct: 0,
+	ramFill: -1,
+	prnBusyMs: 0,
+	centronics: false,
+	jPort: 0x10,
+	jWprot: false,
 	wprot: [false, false, false, false],
 	phosphor: 'cyan',
 };
 
+function sanitizeRamFill(v) {
+	const n = Number(v);
+	if (!Number.isFinite(n) || n < 0) return -1;
+	return Math.max(0, Math.min(255, Math.round(n)));
+}
+
 function cloneSettings(s) {
+	const rawMapper = Number(s.mapperPort);
+	const rawDrivePct = Number(s.drivePct);
+	const rawPrnBusy = Number(s.prnBusyMs);
 	return {
 		boards: Math.max(0, Math.min(4, Number.isInteger(s.boards) ? s.boards : 2)),
+		mexBoards: Math.max(0, Math.min(3, Number.isInteger(s.mexBoards) ? s.mexBoards : 0)),
 		mainsHz: s.mainsHz === 50 ? 50 : 60,
 		fast: Boolean(s.fast),
 		romSwitch: Boolean(s.romSwitch),
 		lowerPage: Boolean(s.lowerPage),
+		pmReadback: Boolean(s.pmReadback),
+		mapperPort: MAPPER_PORTS.has(rawMapper) ? rawMapper : 0,
+		mapperCoversRom: Boolean(s.mapperCoversRom),
+		pb5: Boolean(s.pb5),
+		jt1: Boolean(s.jt1),
+		ctc3: Boolean(s.ctc3),
+		c60: Boolean(s.c60),
+		videoProm: VIDEO_PROMS.has(s.videoProm) ? s.videoProm : 'us',
+		xcpmKeys: Boolean(s.xcpmKeys),
+		drivePct: Number.isFinite(rawDrivePct) ? Math.max(-10, Math.min(10, Math.round(rawDrivePct))) : 0,
+		ramFill: sanitizeRamFill(s.ramFill),
+		prnBusyMs: Number.isFinite(rawPrnBusy) ? Math.max(0, Math.min(500, Math.round(rawPrnBusy))) : 0,
+		centronics: Boolean(s.centronics),
+		jPort: Number(s.jPort) === 0x14 ? 0x14 : 0x10,
+		jWprot: Boolean(s.jWprot),
 		wprot: Array.isArray(s.wprot) ? s.wprot.slice(0, 4).map(Boolean) : [false, false, false, false],
 		phosphor: PHOSPHOR_RGB[s.phosphor] ? s.phosphor : 'cyan',
 	};
+}
+
+function diskExtensionFromName(name) {
+	const m = String(name || '').match(/\.(cc665|hfe|scp|img)$/i);
+	return m ? m[0].toLowerCase() : '.img';
 }
 
 function boolArrayToMask(arr) {
@@ -180,6 +229,8 @@ export class Cc665Emulator {
 		this.romBytes = null;
 		this.promLBytes = null;
 		this.promHBytes = null;
+		this.metricPromLBytes = null;
+		this.metricPromHBytes = null;
 		this.logoImg = null;
 		this.onStateChange = () => {};
 		this.onError = () => {};
@@ -201,6 +252,8 @@ export class Cc665Emulator {
 
 		this.cachedPrinterBytes = new Uint8Array(0);
 		this.lastPrinterLen = 0;
+		this.cachedCenBytes = new Uint8Array(0);
+		this.lastCenLen = 0;
 
 		this.audioCtx = null;
 		this.audioNode = null;
@@ -209,6 +262,16 @@ export class Cc665Emulator {
 
 		this.pendingTextChunks = [];
 		this.diskGen = 0;
+
+		this.winchester = {
+			loaded: false,
+			blank: false,
+			name: '',
+			bytes: null,
+			sectors: 0,
+		};
+
+		this.cartridges = []; // Array of { name, bytes, blank }
 
 		this.drives = [0, 1, 2, 3].map((d) => ({
 			drive: d,
@@ -219,6 +282,8 @@ export class Cc665Emulator {
 			idBytes: null,
 			headerId: '',
 			changed: false,
+			cyls: 0,
+			sides: 0,
 			memfsPath: null,
 			memfsIdPath: null,
 		}));
@@ -229,6 +294,8 @@ export class Cc665Emulator {
 		romUrl = './cc665_rom.bin',
 		promLUrl = './cc665_prom_l.bin',
 		promHUrl = './cc665_prom_h.bin',
+		metricPromLUrl = './metric85_prom_l.bin',
+		metricPromHUrl = './metric85_prom_h.bin',
 		logoUrl = './cc665_logo.png',
 		onStateChange = () => {},
 		onError = () => {},
@@ -304,41 +371,63 @@ export class Cc665Emulator {
 			this.romBytes = bytes;
 		}
 
-		// Fetch 1024-byte U21/U22 glyph PROMs (non-fatal warning if missing)
-		if (promLUrl && typeof fetch === 'function') {
+		// Fetch 1024-byte U21/U22 glyph PROMs (US and optional Metric 85)
+		const fetchProm = async (url, label) => {
+			if (!url || typeof fetch !== 'function') return null;
 			try {
-				const resp = await fetch(promLUrl);
+				const resp = await fetch(url);
 				if (resp.ok) {
 					const bytes = new Uint8Array(await resp.arrayBuffer());
-					if (bytes.length === 1024) {
-						this.promLBytes = bytes;
-					} else {
-						console.warn(`Unexpected PROM L size (${promLUrl}): expected 1024, got ${bytes.length}`);
-					}
-				} else {
-					console.warn(`Could not fetch PROM L (${promLUrl}): HTTP ${resp.status}`);
+					if (bytes.length === 1024) return bytes;
+					console.warn(`Unexpected ${label} size (${url}): expected 1024, got ${bytes.length}`);
 				}
 			} catch (err) {
-				console.warn(`Could not fetch PROM L (${promLUrl}):`, err);
+				console.warn(`Could not fetch ${label} (${url}):`, err);
 			}
-		}
+			return null;
+		};
 
-		if (promHUrl && typeof fetch === 'function') {
-			try {
-				const resp = await fetch(promHUrl);
-				if (resp.ok) {
-					const bytes = new Uint8Array(await resp.arrayBuffer());
-					if (bytes.length === 1024) {
-						this.promHBytes = bytes;
-					} else {
-						console.warn(`Unexpected PROM H size (${promHUrl}): expected 1024, got ${bytes.length}`);
-					}
-				} else {
-					console.warn(`Could not fetch PROM H (${promHUrl}): HTTP ${resp.status}`);
-				}
-			} catch (err) {
-				console.warn(`Could not fetch PROM H (${promHUrl}):`, err);
+		const [usL, usH, mL, mH] = await Promise.all([
+			fetchProm(promLUrl, 'US PROM L'),
+			fetchProm(promHUrl, 'US PROM H'),
+			fetchProm(metricPromLUrl, 'Metric 85 PROM L'),
+			fetchProm(metricPromHUrl, 'Metric 85 PROM H'),
+		]);
+		this.promLBytes = usL;
+		this.promHBytes = usH;
+		this.metricPromLBytes = mL;
+		this.metricPromHBytes = mH;
+	}
+
+	_getPromPair(name) {
+		const isMetric = name === 'metric85' || name === 'metric85g';
+		const l = isMetric && this.metricPromLBytes ? this.metricPromLBytes : this.promLBytes;
+		const h = isMetric && this.metricPromHBytes ? this.metricPromHBytes : this.promHBytes;
+		return {
+			l,
+			h,
+			semigfx: name === 'metric85g' ? 1 : 0,
+		};
+	}
+
+	_applyVideoPromToWasm() {
+		if (!this.mod) return;
+		const { l, h, semigfx } = this._getPromPair(this.settings.videoProm);
+		let lp = 0;
+		let hp = 0;
+		try {
+			if (l && l.length === 1024) {
+				lp = this.mod._malloc(1024);
+				this.mod.HEAPU8.set(l, lp);
 			}
+			if (h && h.length === 1024) {
+				hp = this.mod._malloc(1024);
+				this.mod.HEAPU8.set(h, hp);
+			}
+			this.mod._web_set_video_prom_bytes(lp, lp ? 1024 : 0, hp, hp ? 1024 : 0, semigfx);
+		} finally {
+			if (lp) this.mod._free(lp);
+			if (hp) this.mod._free(hp);
 		}
 	}
 
@@ -361,6 +450,8 @@ export class Cc665Emulator {
 		this.speedRatio = -1;
 		this.cachedPrinterBytes = new Uint8Array(0);
 		this.lastPrinterLen = 0;
+		this.cachedCenBytes = new Uint8Array(0);
+		this.lastCenLen = 0;
 
 		try {
 			mod.FS.mkdir('/disks');
@@ -373,6 +464,7 @@ export class Cc665Emulator {
 			// ignore EEXIST
 		}
 
+		const prom = this._getPromPair(this.settings.videoProm);
 		const romPtr = mod._malloc(2048);
 		let promLPtr = 0;
 		let promLLen = 0;
@@ -382,15 +474,15 @@ export class Cc665Emulator {
 
 		try {
 			mod.HEAPU8.set(this.romBytes, romPtr);
-			if (this.promLBytes && this.promLBytes.length === 1024) {
+			if (prom.l && prom.l.length === 1024) {
 				promLPtr = mod._malloc(1024);
 				promLLen = 1024;
-				mod.HEAPU8.set(this.promLBytes, promLPtr);
+				mod.HEAPU8.set(prom.l, promLPtr);
 			}
-			if (this.promHBytes && this.promHBytes.length === 1024) {
+			if (prom.h && prom.h.length === 1024) {
 				promHPtr = mod._malloc(1024);
 				promHLen = 1024;
-				mod.HEAPU8.set(this.promHBytes, promHPtr);
+				mod.HEAPU8.set(prom.h, promHPtr);
 			}
 
 			initRc = mod._web_init(
@@ -420,7 +512,27 @@ export class Cc665Emulator {
 			throw new Error(msg);
 		}
 
-		// Re-mount all 4 drives currently staged in this.drives
+		// Apply extended hardware options (-e, -5, -u, -3, -E, -q/-Q, -X, -Z, -v, -z, -U, -n, -j, -R j, semigfx)
+		mod._web_configure(
+			this.settings.mexBoards,
+			this.settings.pb5 ? 1 : 0,
+			this.settings.jt1 ? 1 : 0,
+			this.settings.ctc3 ? 1 : 0,
+			this.settings.pmReadback ? 1 : 0,
+			this.settings.mapperPort || -1,
+			this.settings.mapperCoversRom ? 1 : 0,
+			this.settings.c60 ? 1 : 0,
+			this.settings.xcpmKeys ? 1 : 0,
+			this.settings.drivePct | 0,
+			this.settings.ramFill | 0,
+			this.settings.prnBusyMs | 0,
+			this.settings.centronics ? 1 : 0,
+			this.settings.jPort || 0x10,
+			this.settings.jWprot ? 1 : 0,
+			prom.semigfx
+		);
+
+		// Re-mount all 4 floppy drives currently staged in this.drives
 		for (let d = 0; d < 4; d++) {
 			const slot = this.drives[d];
 			slot.memfsPath = null;
@@ -433,6 +545,25 @@ export class Cc665Emulator {
 				this._mountStagedDisk(d);
 			}
 			mod._web_set_wprot(d, this.settings.wprot[d] ? 1 : 0);
+		}
+
+		// Re-mount Winchester HD if staged
+		if (this.winchester.loaded) {
+			if (this.winchester.blank && !this.winchester.bytes) {
+				mod._web_hd_load_blank(this.winchester.sectors || 4896);
+			} else if (this.winchester.bytes) {
+				this._mountStagedWinchester();
+			}
+		}
+
+		// Re-mount 691 Cartridge HD units if staged
+		for (let u = 0; u < this.cartridges.length && u < 4; u++) {
+			const c = this.cartridges[u];
+			if (c.blank && !c.bytes) {
+				mod._web_j_load_blank();
+			} else if (c.bytes) {
+				this._mountStagedCartridge(u);
+			}
 		}
 
 		// Initialize or resume Web Audio worklet (graceful fallback if unavailable)
@@ -510,9 +641,21 @@ export class Cc665Emulator {
 		const ls = this.launchSettings;
 		return (
 			this.settings.boards !== ls.boards ||
+			this.settings.mexBoards !== ls.mexBoards ||
 			this.settings.mainsHz !== ls.mainsHz ||
 			this.settings.romSwitch !== ls.romSwitch ||
-			this.settings.lowerPage !== ls.lowerPage
+			this.settings.lowerPage !== ls.lowerPage ||
+			this.settings.pmReadback !== ls.pmReadback ||
+			this.settings.mapperPort !== ls.mapperPort ||
+			this.settings.mapperCoversRom !== ls.mapperCoversRom ||
+			this.settings.pb5 !== ls.pb5 ||
+			this.settings.ctc3 !== ls.ctc3 ||
+			this.settings.c60 !== ls.c60 ||
+			this.settings.drivePct !== ls.drivePct ||
+			this.settings.ramFill !== ls.ramFill ||
+			this.settings.prnBusyMs !== ls.prnBusyMs ||
+			this.settings.centronics !== ls.centronics ||
+			this.settings.jPort !== ls.jPort
 		);
 	}
 
@@ -527,6 +670,12 @@ export class Cc665Emulator {
 				this.settings.boards = b;
 			}
 		}
+		if (partial.mexBoards !== undefined) {
+			const m = Number(partial.mexBoards);
+			if (Number.isInteger(m) && m >= 0 && m <= 3) {
+				this.settings.mexBoards = m;
+			}
+		}
 		if (partial.mainsHz !== undefined) {
 			this.settings.mainsHz = Number(partial.mainsHz) === 50 ? 50 : 60;
 		}
@@ -535,6 +684,75 @@ export class Cc665Emulator {
 		}
 		if (partial.lowerPage !== undefined) {
 			this.settings.lowerPage = Boolean(partial.lowerPage);
+		}
+		if (partial.pmReadback !== undefined) {
+			this.settings.pmReadback = Boolean(partial.pmReadback);
+		}
+		if (partial.mapperPort !== undefined) {
+			const mp = Number(partial.mapperPort);
+			if (MAPPER_PORTS.has(mp)) {
+				this.settings.mapperPort = mp;
+			}
+		}
+		if (partial.mapperCoversRom !== undefined) {
+			this.settings.mapperCoversRom = Boolean(partial.mapperCoversRom);
+		}
+		if (partial.pb5 !== undefined) {
+			this.settings.pb5 = Boolean(partial.pb5);
+		}
+		if (partial.jt1 !== undefined) {
+			const flag = Boolean(partial.jt1);
+			this.settings.jt1 = flag;
+			if (this.poweredOn && this.mod) {
+				this.mod._web_set_jt1(flag ? 1 : 0);
+			}
+		}
+		if (partial.ctc3 !== undefined) {
+			this.settings.ctc3 = Boolean(partial.ctc3);
+		}
+		if (partial.c60 !== undefined) {
+			this.settings.c60 = Boolean(partial.c60);
+		}
+		if (partial.videoProm !== undefined && VIDEO_PROMS.has(partial.videoProm)) {
+			this.settings.videoProm = partial.videoProm;
+			if (this.poweredOn && this.mod) {
+				this._applyVideoPromToWasm();
+			}
+		}
+		if (partial.xcpmKeys !== undefined) {
+			const flag = Boolean(partial.xcpmKeys);
+			this.settings.xcpmKeys = flag;
+			if (this.poweredOn && this.mod) {
+				this.mod._web_set_xcpm_keys(flag ? 1 : 0);
+			}
+		}
+		if (partial.drivePct !== undefined) {
+			const v = Number(partial.drivePct);
+			if (Number.isFinite(v)) {
+				this.settings.drivePct = Math.max(-10, Math.min(10, Math.round(v)));
+			}
+		}
+		if (partial.ramFill !== undefined) {
+			this.settings.ramFill = sanitizeRamFill(partial.ramFill);
+		}
+		if (partial.prnBusyMs !== undefined) {
+			const v = Number(partial.prnBusyMs);
+			if (Number.isFinite(v)) {
+				this.settings.prnBusyMs = Math.max(0, Math.min(500, Math.round(v)));
+			}
+		}
+		if (partial.centronics !== undefined) {
+			this.settings.centronics = Boolean(partial.centronics);
+		}
+		if (partial.jPort !== undefined) {
+			this.settings.jPort = Number(partial.jPort) === 0x14 ? 0x14 : 0x10;
+		}
+		if (partial.jWprot !== undefined) {
+			const flag = Boolean(partial.jWprot);
+			this.settings.jWprot = flag;
+			if (this.poweredOn && this.mod) {
+				this.mod._web_j_set_wprot(flag ? 1 : 0);
+			}
 		}
 		if (partial.fast !== undefined) {
 			const flag = Boolean(partial.fast);
@@ -573,6 +791,42 @@ export class Cc665Emulator {
 		this.settings.fast = flag;
 		if (this.poweredOn && this.mod) {
 			this.mod._web_set_fast(flag ? 1 : 0);
+		}
+		this._notifyState();
+	}
+
+	setJt1(on) {
+		const flag = Boolean(on);
+		this.settings.jt1 = flag;
+		if (this.poweredOn && this.mod) {
+			this.mod._web_set_jt1(flag ? 1 : 0);
+		}
+		this._notifyState();
+	}
+
+	setXcpmKeys(on) {
+		const flag = Boolean(on);
+		this.settings.xcpmKeys = flag;
+		if (this.poweredOn && this.mod) {
+			this.mod._web_set_xcpm_keys(flag ? 1 : 0);
+		}
+		this._notifyState();
+	}
+
+	setVideoProm(name) {
+		if (!VIDEO_PROMS.has(name)) return;
+		this.settings.videoProm = name;
+		if (this.poweredOn && this.mod) {
+			this._applyVideoPromToWasm();
+		}
+		this._notifyState();
+	}
+
+	setJWprot(on) {
+		const flag = Boolean(on);
+		this.settings.jWprot = flag;
+		if (this.poweredOn && this.mod) {
+			this.mod._web_j_set_wprot(flag ? 1 : 0);
 		}
 		this._notifyState();
 	}
@@ -616,11 +870,8 @@ export class Cc665Emulator {
 			this.onError(`Invalid drive index: ${drive}`);
 			return false;
 		}
-		if (!(imgBytes instanceof Uint8Array) || imgBytes.length !== DISK_SIZE) {
-			const len = imgBytes && typeof imgBytes.length === 'number' ? imgBytes.length : 0;
-			this.onError(
-				`Invalid disk image "${name || 'disk.img'}": expected ${DISK_SIZE} bytes, got ${len}.`
-			);
+		if (!(imgBytes instanceof Uint8Array) || imgBytes.length === 0) {
+			this.onError(`Invalid or empty disk image "${name || 'disk.img'}".`);
 			return false;
 		}
 
@@ -636,6 +887,8 @@ export class Cc665Emulator {
 		slot.loaded = true;
 		slot.unformatted = false;
 		slot.changed = false;
+		slot.cyls = 0;
+		slot.sides = 0;
 		slot.headerId = slot.idBytes ? idBytesToHex(slot.idBytes) : '000000';
 
 		if (this.poweredOn && this.mod) {
@@ -660,6 +913,8 @@ export class Cc665Emulator {
 		slot.idBytes = null;
 		slot.headerId = '000000';
 		slot.changed = false;
+		slot.cyls = 0;
+		slot.sides = 0;
 
 		if (this.poweredOn && this.mod) {
 			this.mod._web_insert_unformatted(drive);
@@ -684,28 +939,31 @@ export class Cc665Emulator {
 		slot.idBytes = null;
 		slot.headerId = '';
 		slot.changed = false;
+		slot.cyls = 0;
+		slot.sides = 0;
 
 		this._notifyState();
 		return true;
 	}
 
-	saveDiskBytes(drive) {
+	saveDiskBytes(drive, format = 'img') {
 		if (drive < 0 || drive > 3) return null;
 		const slot = this.drives[drive];
 		if (!slot.loaded) return null;
 
-		const downloadName =
+		const asCc665 = format === 'cc665';
+		const ext = asCc665 ? '.cc665' : '.img';
+		const baseRaw =
 			slot.name && slot.name !== 'Unformatted disk'
-				? slot.name.endsWith('.img') || slot.name.endsWith('.IMG')
-					? slot.name
-					: `${slot.name}.img`
-				: `disk_${String.fromCharCode(97 + drive)}.img`;
+				? slot.name.replace(/\.(img|cc665|hfe|scp)$/i, '')
+				: `disk_${String.fromCharCode(97 + drive)}`;
+		const downloadName = `${baseRaw}${ext}`;
 
 		if (this.poweredOn && this.mod) {
-			const saveImgPath = `/save/drive${drive}.img`;
+			const savePath = `/save/drive${drive}${ext}`;
 			const saveIdPath = `/save/drive${drive}.id`;
 			try {
-				this.mod.FS.unlink(saveImgPath);
+				this.mod.FS.unlink(savePath);
 			} catch (_e) {
 				// ignore
 			}
@@ -715,7 +973,7 @@ export class Cc665Emulator {
 				// ignore
 			}
 
-			const rc = this._withCString(saveImgPath, (ptr) => this.mod._web_save_disk(drive, ptr));
+			const rc = this._withCString(savePath, (ptr) => this.mod._web_save_disk(drive, ptr));
 			if (rc !== 0) {
 				this.onError(`Could not save disk in drive ${String.fromCharCode(65 + drive)}:.`);
 				return null;
@@ -724,18 +982,22 @@ export class Cc665Emulator {
 			let imgBytes;
 			let idBytes = new Uint8Array(3);
 			try {
-				imgBytes = new Uint8Array(this.mod.FS.readFile(saveImgPath));
-				try {
-					const rawId = this.mod.FS.readFile(saveIdPath);
-					if (rawId && rawId.length === 3) {
-						idBytes = new Uint8Array(rawId);
+				imgBytes = new Uint8Array(this.mod.FS.readFile(savePath));
+				if (!asCc665) {
+					try {
+						const rawId = this.mod.FS.readFile(saveIdPath);
+						if (rawId && rawId.length === 3) {
+							idBytes = new Uint8Array(rawId);
+						}
+					} catch (_e) {
+						// keep 000000
 					}
-				} catch (_e) {
-					// keep 000000
+				} else if (imgBytes.length >= 16) {
+					idBytes = new Uint8Array([imgBytes[12], imgBytes[13], imgBytes[14]]);
 				}
 			} finally {
 				try {
-					this.mod.FS.unlink(saveImgPath);
+					this.mod.FS.unlink(savePath);
 				} catch (_e) {
 					// ignore
 				}
@@ -747,7 +1009,7 @@ export class Cc665Emulator {
 			}
 
 			slot.bytes = new Uint8Array(imgBytes);
-			slot.idBytes = new Uint8Array(idBytes);
+			slot.idBytes = asCc665 ? null : new Uint8Array(idBytes);
 			slot.headerId = idBytesToHex(idBytes);
 			slot.changed = false;
 			slot.unformatted = false;
@@ -757,8 +1019,9 @@ export class Cc665Emulator {
 			this._notifyState();
 			return {
 				name: downloadName,
+				format: asCc665 ? 'cc665' : 'img',
 				imgBytes: new Uint8Array(imgBytes),
-				idBytes: new Uint8Array(idBytes),
+				idBytes: asCc665 ? null : new Uint8Array(idBytes),
 			};
 		}
 
@@ -766,7 +1029,8 @@ export class Cc665Emulator {
 			slot.changed = false;
 			this._notifyState();
 			return {
-				name: downloadName,
+				name: slot.name || downloadName,
+				format: diskExtensionFromName(slot.name).slice(1),
 				imgBytes: new Uint8Array(slot.bytes),
 				idBytes: slot.idBytes ? new Uint8Array(slot.idBytes) : new Uint8Array(3),
 			};
@@ -785,6 +1049,8 @@ export class Cc665Emulator {
 		let busy = false;
 		let track = 0;
 		let side = 0;
+		let cyls = slot.cyls || 0;
+		let sides = slot.sides || 0;
 		let headerId = slot.headerId || (slot.idBytes ? idBytesToHex(slot.idBytes) : '');
 
 		if (this.poweredOn && this.mod) {
@@ -795,6 +1061,8 @@ export class Cc665Emulator {
 			busy = Boolean(this.mod._web_disk_busy(drive));
 			track = this.mod._web_disk_track(drive) | 0;
 			side = this.mod._web_disk_side(drive) | 0;
+			cyls = this.mod._web_disk_cyls(drive) | 0;
+			sides = this.mod._web_disk_sides(drive) | 0;
 			if (loaded) {
 				const idInt = this.mod._web_disk_id_hex(drive) >>> 0;
 				headerId = (idInt & 0xffffff).toString(16).toUpperCase().padStart(6, '0');
@@ -813,6 +1081,8 @@ export class Cc665Emulator {
 			busy,
 			track,
 			side,
+			cyls,
+			sides,
 			headerId,
 		};
 	}
@@ -835,6 +1105,9 @@ export class Cc665Emulator {
 				poweredOn: false,
 				fast: Boolean(this.settings.fast),
 				boards: this.settings.boards,
+				mexBoards: this.settings.mexBoards,
+				mexE: null,
+				mexC: null,
 				mappedCard: -1,
 				mappedBank: -1,
 				mainsHz: this.settings.mainsHz,
@@ -842,12 +1115,25 @@ export class Cc665Emulator {
 				speedRatio: -1,
 				serBusy: false,
 				printerBytes: this.cachedPrinterBytes.length,
+				cenEnabled: Boolean(this.settings.centronics),
+				cenBytes: this.cachedCenBytes.length,
+				c60Active: false,
+				pb5: Boolean(this.settings.pb5),
+				jt1: Boolean(this.settings.jt1),
+				xcpmKeys: Boolean(this.settings.xcpmKeys),
+				hdLoaded: Boolean(this.winchester.loaded),
+				jUnits: this.cartridges.length,
 			};
 		}
 
 		const mapped = this.mod._web_mem_mapped();
 		const mappedCard = mapped >= 0 ? (mapped >> 8) & 0xff : -1;
 		const mappedBank = mapped >= 0 ? mapped & 0xff : -1;
+		const mexBoards = this.mod._web_mex_boards() | 0;
+		const decodeMex = (v) => (v >= 0 ? { card: (v >> 8) & 0xff, bank: v & 0x1f } : null);
+		const mexE = mexBoards > 0 ? decodeMex(this.mod._web_mex_window(7)) : null;
+		const mexC = mexBoards > 0 ? decodeMex(this.mod._web_mex_window(6)) : null;
+
 		const emuSeconds = this.mod._web_emu_seconds();
 		const hostNow = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
 
@@ -861,11 +1147,16 @@ export class Cc665Emulator {
 		}
 
 		const printerBytes = this.mod._web_printer_bytes() | 0;
+		const cenEnabled = Boolean(this.mod._web_cen_enabled());
+		const cenBytes = cenEnabled ? this.mod._web_cen_bytes() | 0 : 0;
 
 		return {
 			poweredOn: true,
 			fast: Boolean(this.mod._web_get_fast()),
 			boards: this.mod._web_mem_boards() | 0,
+			mexBoards,
+			mexE,
+			mexC,
 			mappedCard,
 			mappedBank,
 			mainsHz: this.mod._web_mains_hz() | 0,
@@ -873,6 +1164,14 @@ export class Cc665Emulator {
 			speedRatio: this.speedRatio,
 			serBusy: Boolean(this.mod._web_ser_busy()),
 			printerBytes,
+			cenEnabled,
+			cenBytes,
+			c60Active: Boolean(this.mod._web_c60_active()),
+			pb5: Boolean(this.settings.pb5),
+			jt1: Boolean(this.mod._web_get_jt1()),
+			xcpmKeys: Boolean(this.mod._web_get_xcpm_keys()),
+			hdLoaded: Boolean(this.mod._web_hd_loaded()),
+			jUnits: this.mod._web_j_units() | 0,
 		};
 	}
 
@@ -900,6 +1199,294 @@ export class Cc665Emulator {
 		this.cachedPrinterBytes = new Uint8Array(0);
 		this.lastPrinterLen = 0;
 		this._notifyState();
+	}
+
+	// ---- Centronics Parallel Printer Card (-n) ----
+
+	getCentronicsBytes() {
+		if (this.poweredOn && this.mod && this.mod._web_cen_enabled()) {
+			this.mod._web_cen_bytes();
+			try {
+				const raw = this.mod.FS.readFile('/centronics.bin');
+				this.cachedCenBytes = new Uint8Array(raw);
+			} catch (_e) {
+				this.cachedCenBytes = new Uint8Array(0);
+			}
+		}
+		return new Uint8Array(this.cachedCenBytes);
+	}
+
+	getCentronicsText() {
+		const bytes = this.getCentronicsBytes();
+		let out = '';
+		for (let i = 0; i < bytes.length; i++) {
+			const c = bytes[i] & 0x7f;
+			if (c === 0x0d) continue;
+			if (c === 0x0a || c === 0x09 || (c >= 0x20 && c < 0x7f)) {
+				out += String.fromCharCode(c);
+			} else if (c === 0x0c) {
+				out += '\n--- PAGE BREAK ---\n';
+			}
+		}
+		return out;
+	}
+
+	clearCentronics() {
+		if (this.poweredOn && this.mod) {
+			this.mod._web_cen_clear();
+		}
+		this.cachedCenBytes = new Uint8Array(0);
+		this.lastCenLen = 0;
+		this._notifyState();
+	}
+
+	// ---- Winchester Hard Disk (-W) ----
+
+	getWinchesterState() {
+		const size =
+			this.poweredOn && this.mod && this.mod._web_hd_loaded()
+				? this.mod._web_hd_size() | 0
+				: this.winchester.bytes
+					? this.winchester.bytes.length
+					: (this.winchester.sectors || 0) * 1024;
+		return {
+			loaded: Boolean(this.winchester.loaded),
+			blank: Boolean(this.winchester.blank),
+			name: this.winchester.name || '',
+			size,
+		};
+	}
+
+	insertWinchesterBytes(name, uint8Array) {
+		if (!(uint8Array instanceof Uint8Array) || uint8Array.length === 0) {
+			return { ok: false, error: 'Empty or invalid Winchester hard disk image.' };
+		}
+		const copy = new Uint8Array(uint8Array);
+		this.winchester = {
+			loaded: true,
+			blank: false,
+			name: name || 'winchester.img',
+			bytes: copy,
+			sectors: Math.ceil(copy.length / 1024),
+		};
+		if (this.poweredOn && this.mod) {
+			if (!this._mountStagedWinchester()) {
+				this.winchester = { loaded: false, blank: false, name: '', bytes: null, sectors: 0 };
+				this._notifyState();
+				return { ok: false, error: `Failed to mount Winchester image "${name}".` };
+			}
+		}
+		this._notifyState();
+		return { ok: true, size: copy.length };
+	}
+
+	insertBlankWinchester(sectors = 4896) {
+		const n = Math.max(1, Math.min(65536, sectors | 0));
+		this.winchester = {
+			loaded: true,
+			blank: true,
+			name: `Blank ${(n * 1024 / (1024 * 1024)).toFixed(1)} MB Winchester`,
+			bytes: null,
+			sectors: n,
+		};
+		if (this.poweredOn && this.mod) {
+			const rc = this.mod._web_hd_load_blank(n);
+			if (rc !== 0) {
+				this.winchester = { loaded: false, blank: false, name: '', bytes: null, sectors: 0 };
+				this._notifyState();
+				return { ok: false, error: 'Failed to create blank Winchester image.' };
+			}
+		}
+		this._notifyState();
+		return { ok: true, size: n * 1024 };
+	}
+
+	saveWinchesterBytes() {
+		if (!this.winchester.loaded) return null;
+		const downloadName =
+			this.winchester.name && !this.winchester.blank
+				? this.winchester.name
+				: 'cc665-winchester.img';
+		if (this.poweredOn && this.mod && this.mod._web_hd_loaded()) {
+			const tmpPath = '/save/winchester.img';
+			const rc = this._withCString(tmpPath, (ptr) => this.mod._web_hd_save(ptr));
+			if (rc !== 0) return null;
+			let saved;
+			try {
+				saved = new Uint8Array(this.mod.FS.readFile(tmpPath));
+			} finally {
+				try {
+					this.mod.FS.unlink(tmpPath);
+				} catch (_e) {
+					// ignore
+				}
+			}
+			this.winchester.bytes = saved;
+			this.winchester.blank = false;
+			this.winchester.sectors = Math.ceil(saved.length / 1024);
+			this._notifyState();
+			return { name: downloadName, bytes: new Uint8Array(saved) };
+		}
+		if (this.winchester.bytes) {
+			return { name: downloadName, bytes: new Uint8Array(this.winchester.bytes) };
+		}
+		if (this.winchester.blank && this.winchester.sectors > 0) {
+			return { name: downloadName, bytes: new Uint8Array(this.winchester.sectors * 1024) };
+		}
+		return null;
+	}
+
+	ejectWinchester() {
+		if (this.poweredOn && this.mod) {
+			this.mod._web_hd_eject();
+		}
+		this.winchester = { loaded: false, blank: false, name: '', bytes: null, sectors: 0 };
+		this._notifyState();
+		return { ok: true };
+	}
+
+	_mountStagedWinchester() {
+		if (!this.mod || !this.winchester.bytes) return false;
+		const path = `/disks/hd_${++this.diskGen}.img`;
+		this.mod.FS.writeFile(path, this.winchester.bytes);
+		const rc = this._withCString(path, (ptr) => this.mod._web_hd_load(ptr));
+		try {
+			this.mod.FS.unlink(path);
+		} catch (_e) {
+			// ignore
+		}
+		return rc === 0;
+	}
+
+	// ---- 691 Cartridge Hard Disk (-J) ----
+
+	getCartridgeState() {
+		return this.cartridges.map((c, idx) => ({
+			unit: idx,
+			name: c.name,
+			blank: Boolean(c.blank),
+		}));
+	}
+
+	insertCartridgeBytes(name, uint8Array) {
+		if (this.cartridges.length >= 4) {
+			return { ok: false, error: 'Maximum of 4 691 cartridge units already attached.' };
+		}
+		if (!(uint8Array instanceof Uint8Array) || uint8Array.length === 0) {
+			return { ok: false, error: 'Empty or invalid 691 cartridge image.' };
+		}
+		const idx = this.cartridges.length;
+		const entry = {
+			name: name || `cart691_${idx}.img`,
+			bytes: new Uint8Array(uint8Array),
+			blank: false,
+		};
+		this.cartridges.push(entry);
+		if (this.poweredOn && this.mod) {
+			if (!this._mountStagedCartridge(idx)) {
+				this.cartridges.pop();
+				this._notifyState();
+				return { ok: false, error: `Failed to mount 691 cartridge "${name}".` };
+			}
+		}
+		this._notifyState();
+		return { ok: true, unit: idx };
+	}
+
+	insertBlankCartridge() {
+		if (this.cartridges.length >= 4) {
+			return { ok: false, error: 'Maximum of 4 691 cartridge units already attached.' };
+		}
+		const idx = this.cartridges.length;
+		this.cartridges.push({
+			name: `Blank 691 Unit ${idx}`,
+			bytes: null,
+			blank: true,
+		});
+		if (this.poweredOn && this.mod) {
+			const rc = this.mod._web_j_load_blank();
+			if (rc !== 0) {
+				this.cartridges.pop();
+				this._notifyState();
+				return { ok: false, error: 'Failed to allocate blank 691 cartridge.' };
+			}
+		}
+		this._notifyState();
+		return { ok: true, unit: idx };
+	}
+
+	saveCartridgeBytes(unit = 0) {
+		if (unit < 0 || unit >= this.cartridges.length) return null;
+		const entry = this.cartridges[unit];
+		const downloadName = entry.blank ? `cc665-691-u${unit}.img` : entry.name;
+		if (this.poweredOn && this.mod && unit < this.mod._web_j_units()) {
+			const tmpPath = `/save/j_${unit}.img`;
+			const rc = this._withCString(tmpPath, (ptr) => this.mod._web_j_save(unit, ptr));
+			if (rc !== 0) return null;
+			let saved;
+			try {
+				saved = new Uint8Array(this.mod.FS.readFile(tmpPath));
+			} finally {
+				try {
+					this.mod.FS.unlink(tmpPath);
+				} catch (_e) {
+					// ignore
+				}
+			}
+			entry.bytes = saved;
+			entry.blank = false;
+			this._notifyState();
+			return { name: downloadName, bytes: new Uint8Array(saved) };
+		}
+		if (entry.bytes) {
+			return { name: downloadName, bytes: new Uint8Array(entry.bytes) };
+		}
+		return null;
+	}
+
+	ejectAllCartridges() {
+		if (this.poweredOn && this.mod) {
+			this.mod._web_j_eject_all();
+		}
+		this.cartridges = [];
+		this._notifyState();
+		return { ok: true };
+	}
+
+	_mountStagedCartridge(unit) {
+		const entry = this.cartridges[unit];
+		if (!this.mod || !entry || !entry.bytes) return false;
+		const path = `/disks/j${unit}_${++this.diskGen}.img`;
+		this.mod.FS.writeFile(path, entry.bytes);
+		const rc = this._withCString(path, (ptr) => this.mod._web_j_load(ptr));
+		try {
+			this.mod.FS.unlink(path);
+		} catch (_e) {
+			// ignore
+		}
+		return rc === 0;
+	}
+
+	// ---- Live Memory Dump & Screenshot ----
+
+	dumpMemoryBytes() {
+		if (!this.poweredOn || !this.mod) return null;
+		const base = '/save/cc665_mem.bin';
+		const rc = this._withCString(base, (ptr) => this.mod._web_mem_dump(ptr));
+		if (rc !== 0) return null;
+		let ramBytes = null;
+		try {
+			ramBytes = new Uint8Array(this.mod.FS.readFile(base));
+		} finally {
+			for (const p of [base, `${base}.vram`, `${base}.c60`]) {
+				try {
+					this.mod.FS.unlink(p);
+				} catch (_e) {
+					// ignore
+				}
+			}
+		}
+		return ramBytes;
 	}
 
 	keyQueue(ch) {
@@ -971,11 +1558,12 @@ export class Cc665Emulator {
 		if (!this.mod || !slot.bytes) return false;
 
 		const gen = ++this.diskGen;
-		const imgPath = `/disks/d${drive}_${gen}.img`;
+		const ext = diskExtensionFromName(slot.name);
+		const imgPath = `/disks/d${drive}_${gen}${ext}`;
 		const idPath = `/disks/d${drive}_${gen}.id`;
 
 		this.mod.FS.writeFile(imgPath, slot.bytes);
-		if (slot.idBytes && slot.idBytes.length === 3) {
+		if (ext === '.img' && slot.idBytes && slot.idBytes.length === 3) {
 			this.mod.FS.writeFile(idPath, slot.idBytes);
 		}
 
@@ -983,8 +1571,10 @@ export class Cc665Emulator {
 		if (rc === 0) {
 			this._unlinkSlotFiles(slot);
 			slot.memfsPath = imgPath;
-			slot.memfsIdPath = slot.idBytes && slot.idBytes.length === 3 ? idPath : null;
+			slot.memfsIdPath = ext === '.img' && slot.idBytes && slot.idBytes.length === 3 ? idPath : null;
 			slot.changed = Boolean(this.mod._web_disk_changed(drive));
+			slot.cyls = this.mod._web_disk_cyls(drive) | 0;
+			slot.sides = this.mod._web_disk_sides(drive) | 0;
 			const idInt = this.mod._web_disk_id_hex(drive) >>> 0;
 			slot.headerId = (idInt & 0xffffff).toString(16).toUpperCase().padStart(6, '0');
 			this.mod._web_set_wprot(drive, this.settings.wprot[drive] ? 1 : 0);
@@ -1168,6 +1758,13 @@ export class Cc665Emulator {
 		if (prnLen !== this.lastPrinterLen) {
 			this.lastPrinterLen = prnLen;
 			discreteChanged = true;
+		}
+		if (this.mod._web_cen_enabled()) {
+			const cenLen = this.mod._web_cen_bytes() | 0;
+			if (cenLen !== this.lastCenLen) {
+				this.lastCenLen = cenLen;
+				discreteChanged = true;
+			}
 		}
 
 		if (postAudio && !this.muted && this.audioReady && this.audioNode) {

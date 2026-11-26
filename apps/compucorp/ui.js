@@ -6,20 +6,43 @@
  * paste modal, and confirmation dialogs.
  */
 
-import { Cc665Emulator, DISK_SIZE, PHOSPHOR_RGB, renderDiabloText } from './emulator.js?v=4';
+import {
+  Cc665Emulator,
+  DISK_SIZE,
+  PHOSPHOR_RGB,
+  VIDEO_PROMS,
+  MAPPER_PORTS,
+  renderDiabloText
+} from './emulator.js?v=6';
 import { attachKeyboard, OMEGA_KEYS, K_BREAK, K_RESET } from './keyboard.js';
 
-import { createOnScreenKeyboard } from './osk.js?v=4';
+import { createOnScreenKeyboard } from './osk.js?v=6';
 
 const STORAGE_KEY = 'cc665.web.settings.v1';
 const DRIVE_LETTERS = ['A:', 'B:', 'C:', 'D:'];
 
 const DEFAULT_SETTINGS = Object.freeze({
   boards: 2,
+  mexBoards: 0,
   mainsHz: 60,
   fast: false,
   romSwitch: false,
   lowerPage: false,
+  pmReadback: false,
+  mapperPort: 0,
+  mapperCoversRom: false,
+  pb5: false,
+  jt1: false,
+  ctc3: false,
+  c60: false,
+  videoProm: 'us',
+  xcpmKeys: false,
+  drivePct: 0,
+  ramFill: -1,
+  prnBusyMs: 0,
+  centronics: false,
+  jPort: 0x10,
+  jWprot: false,
   wprot: [false, false, false, false],
   phosphor: 'cyan'
 });
@@ -33,10 +56,44 @@ function sanitizeSettings(raw) {
     Number.isInteger(rawBoards) && rawBoards >= 0 && rawBoards <= 4
       ? rawBoards
       : DEFAULT_SETTINGS.boards;
+  const rawMex = Number(src.mexBoards);
+  const mexBoards =
+    Number.isInteger(rawMex) && rawMex >= 0 && rawMex <= 3
+      ? rawMex
+      : DEFAULT_SETTINGS.mexBoards;
   const mainsHz = Number(src.mainsHz) === 50 ? 50 : 60;
   const fast = Boolean(src.fast);
   const romSwitch = Boolean(src.romSwitch);
   const lowerPage = Boolean(src.lowerPage);
+  const pmReadback = Boolean(src.pmReadback);
+  const rawMapper = Number(src.mapperPort);
+  const mapperPort = MAPPER_PORTS.has(rawMapper) ? rawMapper : 0;
+  const mapperCoversRom = Boolean(src.mapperCoversRom);
+  const pb5 = Boolean(src.pb5);
+  const jt1 = Boolean(src.jt1);
+  const ctc3 = Boolean(src.ctc3);
+  const c60 = Boolean(src.c60);
+  const videoProm =
+    typeof src.videoProm === 'string' && VIDEO_PROMS.has(src.videoProm)
+      ? src.videoProm
+      : DEFAULT_SETTINGS.videoProm;
+  const xcpmKeys = Boolean(src.xcpmKeys);
+  const rawDrivePct = Number(src.drivePct);
+  const drivePct = Number.isFinite(rawDrivePct)
+    ? Math.max(-10, Math.min(10, Math.round(rawDrivePct)))
+    : 0;
+  const rawRamFill = Number(src.ramFill);
+  const ramFill =
+    Number.isFinite(rawRamFill) && rawRamFill >= 0
+      ? Math.max(0, Math.min(255, Math.round(rawRamFill)))
+      : -1;
+  const rawPrnBusy = Number(src.prnBusyMs);
+  const prnBusyMs = Number.isFinite(rawPrnBusy)
+    ? Math.max(0, Math.min(500, Math.round(rawPrnBusy)))
+    : 0;
+  const centronics = Boolean(src.centronics);
+  const jPort = Number(src.jPort) === 0x14 ? 0x14 : 0x10;
+  const jWprot = Boolean(src.jWprot);
   const wprot = [0, 1, 2, 3].map((i) =>
     Array.isArray(src.wprot) ? Boolean(src.wprot[i]) : false
   );
@@ -45,7 +102,31 @@ function sanitizeSettings(raw) {
       ? src.phosphor
       : DEFAULT_SETTINGS.phosphor;
 
-  return { boards, mainsHz, fast, romSwitch, lowerPage, wprot, phosphor };
+  return {
+    boards,
+    mexBoards,
+    mainsHz,
+    fast,
+    romSwitch,
+    lowerPage,
+    pmReadback,
+    mapperPort,
+    mapperCoversRom,
+    pb5,
+    jt1,
+    ctc3,
+    c60,
+    videoProm,
+    xcpmKeys,
+    drivePct,
+    ramFill,
+    prnBusyMs,
+    centronics,
+    jPort,
+    jWprot,
+    wprot,
+    phosphor
+  };
 }
 
 function loadStoredSettings() {
@@ -98,6 +179,8 @@ const dom = {
   hardwareStatusBar: document.getElementById('hardware-status-bar'),
   hwMemText: document.getElementById('hw-mem-text'),
   hwMainsText: document.getElementById('hw-mains-text'),
+  hwFlagsSep: document.getElementById('hw-flags-sep'),
+  hwFlagsText: document.getElementById('hw-flags-text'),
   btnHwSer: document.getElementById('btn-hw-ser'),
   hwSerLed: document.getElementById('hw-ser-led'),
   hwSerBytes: document.getElementById('hw-ser-bytes'),
@@ -138,13 +221,43 @@ const dom = {
   btnCloseSettings: document.getElementById('btn-close-settings'),
   btnSettingsClose: document.getElementById('btn-settings-close'),
   btnSettingsReset: document.getElementById('btn-settings-reset'),
+  btnToolScreenshot: document.getElementById('btn-tool-screenshot'),
+  btnToolDumpMem: document.getElementById('btn-tool-dump-mem'),
   settingsRestartBanner: document.getElementById('settings-restart-banner'),
   btnSettingsRestartNow: document.getElementById('btn-settings-restart-now'),
   settingsBoards: document.getElementById('settings-boards'),
+  settingsMexBoards: document.getElementById('settings-mex-boards'),
+  settingsMapperPort: document.getElementById('settings-mapper-port'),
   settingsMains60: document.getElementById('settings-mains-60'),
   settingsMains50: document.getElementById('settings-mains-50'),
+  settingsC60: document.getElementById('settings-c60'),
+  settingsVideoProm: document.getElementById('settings-video-prom'),
   settingsRomSwitch: document.getElementById('settings-rom-switch'),
   settingsLowerPage: document.getElementById('settings-lower-page'),
+  settingsPmReadback: document.getElementById('settings-pm-readback'),
+  settingsMapperCoversRom: document.getElementById('settings-mapper-covers-rom'),
+  settingsPb5: document.getElementById('settings-pb5'),
+  settingsJt1: document.getElementById('settings-jt1'),
+  settingsCtc3: document.getElementById('settings-ctc3'),
+  settingsXcpmKeys: document.getElementById('settings-xcpm-keys'),
+  settingsCentronics: document.getElementById('settings-centronics'),
+  settingsHdStatus: document.getElementById('settings-hd-status'),
+  btnHdInsert: document.getElementById('btn-hd-insert'),
+  btnHdBlank: document.getElementById('btn-hd-blank'),
+  btnHdSave: document.getElementById('btn-hd-save'),
+  btnHdEject: document.getElementById('btn-hd-eject'),
+  inputHdFile: document.getElementById('input-hd-file'),
+  settingsJStatus: document.getElementById('settings-j-status'),
+  btnJInsert: document.getElementById('btn-j-insert'),
+  btnJBlank: document.getElementById('btn-j-blank'),
+  btnJSave: document.getElementById('btn-j-save'),
+  btnJEject: document.getElementById('btn-j-eject'),
+  inputJFile: document.getElementById('input-j-file'),
+  settingsJPort: document.getElementById('settings-j-port'),
+  settingsJWprot: document.getElementById('settings-j-wprot'),
+  settingsDrivePct: document.getElementById('settings-drive-pct'),
+  settingsRamFill: document.getElementById('settings-ram-fill'),
+  settingsPrnBusy: document.getElementById('settings-prn-busy'),
   settingsWprot: [0, 1, 2, 3].map((d) =>
     document.getElementById(`settings-wprot-${d}`)
   ),
@@ -155,6 +268,8 @@ const dom = {
 
   modalPrinter: document.getElementById('modal-printer'),
   printerSubtitle: document.getElementById('printer-subtitle'),
+  btnPrinterSrcSio: document.getElementById('btn-printer-src-sio'),
+  btnPrinterSrcCen: document.getElementById('btn-printer-src-cen'),
   btnPrinterViewRendered: document.getElementById('btn-printer-view-rendered'),
   btnPrinterViewRaw: document.getElementById('btn-printer-view-raw'),
   btnClosePrinter: document.getElementById('btn-close-printer'),
@@ -223,8 +338,9 @@ let keystripVisible = false;
 let keystripCtrlActive = false;
 let keystripButtons = [];
 
+let printerSource = 'sio'; // 'sio' | 'cen'
 let printerViewMode = 'rendered'; // 'rendered' | 'raw'
-let lastRenderedPrinterBytes = -1;
+let lastRenderedPrinterKey = '';
 
 /* ---- Toast Notifications ---- */
 
@@ -300,7 +416,19 @@ function formatTrackSide(track, side) {
   return `T${String(t).padStart(2, '0')} S${s}`;
 }
 
+function formatMexSlot(slot) {
+  if (!slot || typeof slot.card !== 'number' || typeof slot.bank !== 'number') return '--';
+  const portHex = (0xf6 - slot.card).toString(16).toUpperCase();
+  return `${portHex}/${String(slot.bank).padStart(2, '0')}`;
+}
+
 function formatMemStatus(telemetry) {
+  const mexBoards = Number(telemetry?.mexBoards) || 0;
+  if (mexBoards > 0) {
+    const eStr = formatMexSlot(telemetry?.mexE);
+    const cStr = formatMexSlot(telemetry?.mexC);
+    return `MEX${mexBoards} (${mexBoards * 256}K) \u00B7 E:${eStr} C:${cStr}`;
+  }
   const boards = Number(telemetry?.boards) || 0;
   const memLayout = boards > 0 ? `64K+${boards}\u00D764K` : '64K';
   const card = telemetry?.mappedCard;
@@ -475,10 +603,11 @@ function renderTopbar(telemetry) {
   dom.btnFast.classList.toggle('is-active', fast);
   dom.btnFast.setAttribute('aria-pressed', String(fast));
 
-  const printerBytes = Number(telemetry?.printerBytes) || 0;
-  if (printerBytes > 0) {
+  const totalPrinterBytes =
+    (Number(telemetry?.printerBytes) || 0) + (Number(telemetry?.cenBytes) || 0);
+  if (totalPrinterBytes > 0) {
     dom.printerCountBadge.hidden = false;
-    dom.printerCountBadge.textContent = formatByteCount(printerBytes);
+    dom.printerCountBadge.textContent = formatByteCount(totalPrinterBytes);
   } else {
     dom.printerCountBadge.hidden = true;
     dom.printerCountBadge.textContent = '0 B';
@@ -494,10 +623,26 @@ function renderHardwareStatusBar(telemetry) {
   dom.hwMemText.textContent = formatMemStatus(telemetry);
   dom.hwMainsText.textContent = `MAINS ${telemetry.mainsHz || 60} Hz`;
 
+  const flags = [];
+  if (telemetry?.c60Active) flags.push('60-LINE');
+  if (telemetry?.pb5) flags.push('PB5');
+  if (telemetry?.jt1) flags.push('JT1');
+  if (telemetry?.xcpmKeys) flags.push('XCPM');
+  if (telemetry?.hdLoaded) flags.push('HD');
+  if (Number(telemetry?.jUnits) > 0) flags.push(`691\u00D7${telemetry.jUnits}`);
+  if (telemetry?.cenEnabled) flags.push('CEN');
+  if (dom.hwFlagsText && dom.hwFlagsSep) {
+    const show = flags.length > 0;
+    dom.hwFlagsSep.hidden = !show;
+    dom.hwFlagsText.hidden = !show;
+    dom.hwFlagsText.textContent = flags.join(' ');
+  }
+
   const serBusy = Boolean(telemetry.serBusy);
-  const printerBytes = Number(telemetry.printerBytes) || 0;
+  const totalPrinterBytes =
+    (Number(telemetry.printerBytes) || 0) + (Number(telemetry.cenBytes) || 0);
   dom.hwSerLed.classList.toggle('is-active', serBusy);
-  dom.hwSerBytes.textContent = formatByteCount(printerBytes);
+  dom.hwSerBytes.textContent = formatByteCount(totalPrinterBytes);
 
   dom.hwSpeedText.textContent = formatSpeedReadout(telemetry);
   dom.hwSpeedText.classList.toggle('is-fast', Boolean(telemetry.poweredOn && telemetry.fast));
@@ -517,6 +662,8 @@ function renderDrives() {
       busy: false,
       track: 0,
       side: 0,
+      cyls: 0,
+      sides: 0,
       headerId: ''
     };
 
@@ -548,10 +695,12 @@ function renderDrives() {
     if (loaded) {
       displayName = unformatted ? 'Unformatted' : st.name || 'Disk';
     }
+    const geomSuffix =
+      loaded && st.cyls > 0 && st.sides > 0 ? ` [${st.cyls}T\u00D7${st.sides}S]` : '';
     const idSuffix =
       loaded && st.headerId ? ` (ID: ${String(st.headerId).toUpperCase()})` : '';
     slot.name.textContent = displayName;
-    slot.name.title = `${displayName}${idSuffix}`;
+    slot.name.title = `${displayName}${geomSuffix}${idSuffix}`;
     slot.name.classList.toggle('is-empty', !loaded);
 
     slot.btnSave.disabled = !loaded;
@@ -566,11 +715,60 @@ function syncSettingsModalFromEmu() {
   const s = sanitizeSettings(emu.getSettings());
 
   dom.settingsBoards.value = String(s.boards);
+  if (dom.settingsMexBoards) dom.settingsMexBoards.value = String(s.mexBoards);
+  if (dom.settingsMapperPort) dom.settingsMapperPort.value = String(s.mapperPort);
   dom.settingsMains60.checked = s.mainsHz !== 50;
   dom.settingsMains50.checked = s.mainsHz === 50;
 
+  if (dom.settingsC60) dom.settingsC60.checked = Boolean(s.c60);
+  if (dom.settingsVideoProm) dom.settingsVideoProm.value = s.videoProm;
+
   dom.settingsRomSwitch.checked = Boolean(s.romSwitch);
   dom.settingsLowerPage.checked = Boolean(s.lowerPage);
+  if (dom.settingsPmReadback) dom.settingsPmReadback.checked = Boolean(s.pmReadback);
+  if (dom.settingsMapperCoversRom) dom.settingsMapperCoversRom.checked = Boolean(s.mapperCoversRom);
+  if (dom.settingsPb5) dom.settingsPb5.checked = Boolean(s.pb5);
+  if (dom.settingsJt1) dom.settingsJt1.checked = Boolean(s.jt1);
+  if (dom.settingsCtc3) dom.settingsCtc3.checked = Boolean(s.ctc3);
+  if (dom.settingsXcpmKeys) dom.settingsXcpmKeys.checked = Boolean(s.xcpmKeys);
+  if (dom.settingsCentronics) dom.settingsCentronics.checked = Boolean(s.centronics);
+
+  if (dom.settingsJPort) dom.settingsJPort.value = String(s.jPort);
+  if (dom.settingsJWprot) dom.settingsJWprot.checked = Boolean(s.jWprot);
+  if (dom.settingsDrivePct) dom.settingsDrivePct.value = String(s.drivePct);
+  if (dom.settingsRamFill) dom.settingsRamFill.value = String(s.ramFill);
+  if (dom.settingsPrnBusy) dom.settingsPrnBusy.value = String(s.prnBusyMs);
+
+  const hd = emu.getWinchesterState();
+  if (dom.settingsHdStatus) {
+    if (hd.loaded) {
+      dom.settingsHdStatus.textContent = `${hd.name} (${formatByteCount(hd.size)})`;
+      dom.settingsHdStatus.classList.remove('is-empty');
+    } else {
+      dom.settingsHdStatus.textContent = 'Not attached';
+      dom.settingsHdStatus.classList.add('is-empty');
+    }
+  }
+  if (dom.btnHdSave) dom.btnHdSave.disabled = !hd.loaded;
+  if (dom.btnHdEject) dom.btnHdEject.disabled = !hd.loaded;
+
+  const carts = emu.getCartridgeState();
+  if (dom.settingsJStatus) {
+    if (carts.length > 0) {
+      const names = carts.map((c) => `U${c.unit}:${c.name}`).join(', ');
+      dom.settingsJStatus.textContent = `${carts.length} unit${carts.length === 1 ? '' : 's'} (${names})`;
+      dom.settingsJStatus.classList.remove('is-empty');
+    } else {
+      dom.settingsJStatus.textContent = '0 units attached';
+      dom.settingsJStatus.classList.add('is-empty');
+    }
+  }
+  if (dom.btnJSave) dom.btnJSave.disabled = carts.length === 0;
+  if (dom.btnJEject) dom.btnJEject.disabled = carts.length === 0;
+  if (dom.btnJInsert) dom.btnJInsert.disabled = carts.length >= 4;
+  if (dom.btnJBlank) dom.btnJBlank.disabled = carts.length >= 4;
+
+  if (dom.btnToolDumpMem) dom.btnToolDumpMem.disabled = !emu.isPoweredOn();
 
   for (let d = 0; d < 4; d++) {
     if (dom.settingsWprot[d]) {
@@ -611,14 +809,32 @@ function formatRawPrinterHexAndAscii(bytes) {
   return lines.join('\n');
 }
 
+function getActivePrinterBytes() {
+  return printerSource === 'cen' ? emu.getCentronicsBytes() : emu.getPrinterBytes();
+}
+
 function renderPrinterModal(force = false) {
   if (dom.modalPrinter.hidden && !force) return;
   const telemetry = emu.getTelemetry();
-  const count = Number(telemetry?.printerBytes) || 0;
-  if (!force && count === lastRenderedPrinterBytes) return;
-  lastRenderedPrinterBytes = count;
+  const sioCount = Number(telemetry?.printerBytes) || 0;
+  const cenCount = Number(telemetry?.cenBytes) || 0;
+  const key = `${printerSource}:${printerViewMode}:${sioCount}:${cenCount}:${telemetry?.cenEnabled ? 1 : 0}`;
+  if (!force && key === lastRenderedPrinterKey) return;
+  lastRenderedPrinterKey = key;
 
-  const bytes = emu.getPrinterBytes();
+  const isCen = printerSource === 'cen';
+  if (dom.btnPrinterSrcSio) {
+    dom.btnPrinterSrcSio.classList.toggle('is-active', !isCen);
+    dom.btnPrinterSrcSio.setAttribute('aria-pressed', String(!isCen));
+    dom.btnPrinterSrcSio.textContent = sioCount > 0 ? `SIO B (${formatByteCount(sioCount)})` : 'SIO B';
+  }
+  if (dom.btnPrinterSrcCen) {
+    dom.btnPrinterSrcCen.classList.toggle('is-active', isCen);
+    dom.btnPrinterSrcCen.setAttribute('aria-pressed', String(isCen));
+    dom.btnPrinterSrcCen.textContent = cenCount > 0 ? `Centronics (${formatByteCount(cenCount)})` : 'Centronics (-n)';
+  }
+
+  const bytes = getActivePrinterBytes();
   const hasBytes = bytes.length > 0;
 
   dom.btnPrinterViewRendered.classList.toggle('is-active', printerViewMode === 'rendered');
@@ -632,24 +848,39 @@ function renderPrinterModal(force = false) {
   dom.btnPrinterClear.disabled = !hasBytes;
 
   if (!hasBytes) {
-    dom.printerSubtitle.textContent = '0 bytes captured \u00B7 Diablo 630 Daisy-Wheel Decoder';
-    dom.printerOutput.textContent = 'Press PRINT (F4) in Omega to capture printer output.';
+    if (isCen) {
+      dom.printerSubtitle.textContent = telemetry?.cenEnabled
+        ? '0 bytes captured \u00B7 Centronics Parallel Printer Card (-n)'
+        : 'Centronics card disabled \u00B7 Enable in Settings (-n) and Hard Restart';
+      dom.printerOutput.textContent = telemetry?.cenEnabled
+        ? 'Waiting for parallel output on the Centronics port (00h/01h)...'
+        : 'Enable "Centronics parallel printer card (-n)" in Hardware Settings and Hard Restart to capture parallel printer output.';
+    } else {
+      dom.printerSubtitle.textContent = '0 bytes captured \u00B7 Diablo 630 Daisy-Wheel Decoder';
+      dom.printerOutput.textContent = 'Press PRINT (F4) in Omega to capture printer output.';
+    }
     dom.printerOutput.classList.add('is-placeholder');
     return;
   }
 
   dom.printerOutput.classList.remove('is-placeholder');
   if (printerViewMode === 'rendered') {
-    const decoded = renderDiabloText(bytes);
-    const unknownKeys = Object.keys(decoded.unknown || {});
-    const unknownNote =
-      unknownKeys.length > 0
-        ? ` \u00B7 ${unknownKeys.length} unmapped control code${unknownKeys.length === 1 ? '' : 's'}`
-        : '';
-    dom.printerSubtitle.textContent = `${bytes.length} bytes captured \u00B7 Diablo 630 Rendered Text${unknownNote}`;
-    dom.printerOutput.textContent = decoded.text || '(No printable characters decoded yet)';
+    if (isCen) {
+      dom.printerSubtitle.textContent = `${bytes.length} bytes captured \u00B7 Centronics Parallel Text`;
+      dom.printerOutput.textContent = emu.getCentronicsText() || '(No printable characters decoded yet)';
+    } else {
+      const decoded = renderDiabloText(bytes);
+      const unknownKeys = Object.keys(decoded.unknown || {});
+      const unknownNote =
+        unknownKeys.length > 0
+          ? ` \u00B7 ${unknownKeys.length} unmapped control code${unknownKeys.length === 1 ? '' : 's'}`
+          : '';
+      dom.printerSubtitle.textContent = `${bytes.length} bytes captured \u00B7 Diablo 630 Rendered Text${unknownNote}`;
+      dom.printerOutput.textContent = decoded.text || '(No printable characters decoded yet)';
+    }
   } else {
-    dom.printerSubtitle.textContent = `${bytes.length} bytes captured \u00B7 Raw Hex & ASCII Stream`;
+    const label = isCen ? 'Centronics Raw Hex & ASCII' : 'SIO B Raw Hex & ASCII Stream';
+    dom.printerSubtitle.textContent = `${bytes.length} bytes captured \u00B7 ${label}`;
     dom.printerOutput.textContent = formatRawPrinterHexAndAscii(bytes);
   }
 }
@@ -683,23 +914,25 @@ function triggerBrowserDownload(bytes, filename, mimeType = 'application/octet-s
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function buildSaveFilename(drive, rawName) {
-  const fallback = `cc665-drive-${'abcd'[drive]}.img`;
+function buildSaveFilename(drive, rawName, format = 'img') {
+  const ext = format === 'cc665' ? '.cc665' : '.img';
+  const fallback = `cc665-drive-${'abcd'[drive]}${ext}`;
   if (!rawName || typeof rawName !== 'string') return fallback;
   const trimmed = rawName.trim();
   if (!trimmed || trimmed === 'Unformatted disk') return fallback;
-  if (/\.img$/i.test(trimmed)) return trimmed;
-  return `${trimmed}.img`;
+  const base = trimmed.replace(/\.(img|cc665|hfe|scp)$/i, '');
+  return `${base || `cc665-drive-${'abcd'[drive]}`}${ext}`;
 }
 
-function downloadDriveDisk(drive) {
+function downloadDriveDisk(drive, format = 'img') {
   try {
-    const saved = emu.saveDiskBytes(drive);
+    const saved = emu.saveDiskBytes(drive, format);
     if (!saved || !saved.imgBytes) {
       showToast(`Drive ${DRIVE_LETTERS[drive]} has no disk to save.`, 'warn');
       return false;
     }
-    const filename = buildSaveFilename(drive, saved.name);
+    const fmt = saved.format === 'cc665' ? 'cc665' : format;
+    const filename = buildSaveFilename(drive, saved.name, fmt);
     triggerBrowserDownload(saved.imgBytes, filename);
     renderAll();
     showToast(`Saved ${filename} from Drive ${DRIVE_LETTERS[drive]}`, 'success');
@@ -807,13 +1040,8 @@ async function insertBytesIntoDrive(
   idUint8Array = null,
   { skipUnsavedCheck = false, silent = false } = {}
 ) {
-  if (!(imgUint8Array instanceof Uint8Array) || imgUint8Array.length !== DISK_SIZE) {
-    const got = imgUint8Array ? imgUint8Array.length : 0;
-    showToast(
-      `Invalid disk image "${filename}": expected ${DISK_SIZE.toLocaleString()} bytes (308 KB), got ${got.toLocaleString()} bytes.`,
-      'error',
-      5000
-    );
+  if (!(imgUint8Array instanceof Uint8Array) || imgUint8Array.length === 0) {
+    showToast(`Invalid or empty disk image "${filename}".`, 'error', 4500);
     return false;
   }
 
@@ -841,7 +1069,12 @@ async function handleLocalFilesForDrive(drive, fileList) {
 
   for (const f of files) {
     const lower = f.name.toLowerCase();
-    if (lower.endsWith('.img')) {
+    if (
+      lower.endsWith('.img') ||
+      lower.endsWith('.cc665') ||
+      lower.endsWith('.hfe') ||
+      lower.endsWith('.scp')
+    ) {
       imgFile = f;
     } else if (lower.endsWith('.id')) {
       idFile = f;
@@ -851,7 +1084,7 @@ async function handleLocalFilesForDrive(drive, fileList) {
   if (!imgFile) {
     const rejectedName = files[0]?.name || 'file';
     showToast(
-      `Unsupported file "${rejectedName}". Please select a 315,392-byte Compucorp .img disk image.`,
+      `Unsupported file "${rejectedName}". Select a .img, .cc665, .hfe, or .scp floppy image.`,
       'error',
       4500
     );
@@ -861,17 +1094,13 @@ async function handleLocalFilesForDrive(drive, fileList) {
   try {
     const imgBuf = await imgFile.arrayBuffer();
     const imgBytes = new Uint8Array(imgBuf);
-    if (imgBytes.length !== DISK_SIZE) {
-      showToast(
-        `Invalid .img size for "${imgFile.name}": expected ${DISK_SIZE.toLocaleString()} bytes, got ${imgBytes.length.toLocaleString()} bytes.`,
-        'error',
-        5000
-      );
+    if (imgBytes.length === 0) {
+      showToast(`Disk image "${imgFile.name}" is empty.`, 'error', 4500);
       return;
     }
 
     let idBytes = null;
-    if (idFile) {
+    if (idFile && imgFile.name.toLowerCase().endsWith('.img')) {
       const idBuf = await idFile.arrayBuffer();
       if (idBuf.byteLength === 3) {
         idBytes = new Uint8Array(idBuf);
@@ -1282,6 +1511,14 @@ function renderLibraryList() {
       badges.appendChild(memBadge);
     }
 
+    if (disk.requiresPb5) {
+      const pb5Badge = document.createElement('span');
+      pb5Badge.className = 'badge badge-id';
+      pb5Badge.textContent = 'PB5';
+      pb5Badge.title = 'Automatically enables PB5 ROM-off mod (-5) when booted';
+      badges.appendChild(pb5Badge);
+    }
+
     header.appendChild(badges);
     main.appendChild(header);
 
@@ -1302,7 +1539,7 @@ function renderLibraryList() {
     btnBootA.className = 'btn btn-primary btn-sm';
     btnBootA.disabled = Boolean(libraryLoadingId);
     btnBootA.textContent = isBusy ? 'Loading...' : 'Boot in A:';
-    btnBootA.title = 'Stage disk in Drive A:, ensure required memory boards, and boot/restart';
+    btnBootA.title = 'Stage disk in Drive A:, ensure required hardware settings, and boot/restart';
     btnBootA.addEventListener('click', () => handleLibraryBootInA(disk));
 
     const btnMountB = document.createElement('button');
@@ -1323,15 +1560,31 @@ function renderLibraryList() {
 }
 
 function ensureMinBoardsForDisk(disk) {
-  const minBoards = Number(disk?.minBoards) || 0;
-  if (minBoards <= 0) return;
   const settings = sanitizeSettings(emu.getSettings());
-  if (settings.boards < minBoards) {
+  const updates = {};
+  const notes = [];
+
+  const minBoards = Number(disk?.minBoards) || 0;
+  if (minBoards > 0 && settings.boards < minBoards) {
     const nextBoards = Math.max(2, minBoards);
-    emu.updateSettings({ boards: nextBoards });
+    updates.boards = nextBoards;
+    notes.push(`Paged Memory Boards \u2192 ${nextBoards}`);
+  }
+  if (disk?.requiresPb5 && !settings.pb5) {
+    updates.pb5 = true;
+    notes.push('PB5 ROM-off (-5)');
+  }
+  if (disk?.xcpmKeys && !settings.xcpmKeys) {
+    updates.xcpmKeys = true;
+    emu.setXcpmKeys(true);
+    notes.push('xcpmz80 keys (-Z)');
+  }
+
+  if (Object.keys(updates).length > 0) {
+    emu.updateSettings(updates);
     saveStoredSettings(emu.getSettings());
     showToast(
-      `${disk.title || 'Disk'} requires paged memory; bumped Paged Memory Boards to ${nextBoards}.`,
+      `Enabled ${notes.join(', ')} for ${disk.title || 'disk'}.`,
       'info',
       4500
     );
@@ -1458,37 +1711,243 @@ async function handleLibraryBootOmegaSuite() {
 /* ---- Settings Modal Events ---- */
 
 function wireSettingsEvents() {
+  const applySetting = (partial) => {
+    emu.updateSettings(partial);
+    saveStoredSettings(emu.getSettings());
+    renderAll();
+  };
+
   dom.settingsBoards.addEventListener('change', () => {
     const boards = Number.parseInt(dom.settingsBoards.value, 10);
     if (Number.isInteger(boards) && boards >= 0 && boards <= 4) {
-      emu.updateSettings({ boards });
-      saveStoredSettings(emu.getSettings());
-      renderAll();
+      applySetting({ boards });
       if (boards === 0) {
         showToast('Note: Omega requires at least 1 paged memory board.', 'warn');
       }
     }
   });
 
+  dom.settingsMexBoards?.addEventListener('change', () => {
+    const mexBoards = Number.parseInt(dom.settingsMexBoards.value, 10);
+    if (Number.isInteger(mexBoards) && mexBoards >= 0 && mexBoards <= 3) {
+      applySetting({ mexBoards });
+    }
+  });
+
+  dom.settingsMapperPort?.addEventListener('change', () => {
+    const mapperPort = Number.parseInt(dom.settingsMapperPort.value, 10);
+    if (MAPPER_PORTS.has(mapperPort)) {
+      applySetting({ mapperPort });
+    }
+  });
+
   const onMainsChange = () => {
     const mainsHz = dom.settingsMains50.checked ? 50 : 60;
-    emu.updateSettings({ mainsHz });
-    saveStoredSettings(emu.getSettings());
-    renderAll();
+    applySetting({ mainsHz });
   };
   dom.settingsMains60.addEventListener('change', onMainsChange);
   dom.settingsMains50.addEventListener('change', onMainsChange);
 
+  dom.settingsC60?.addEventListener('change', () => {
+    applySetting({ c60: Boolean(dom.settingsC60.checked) });
+  });
+
+  dom.settingsVideoProm?.addEventListener('change', () => {
+    const prom = dom.settingsVideoProm.value;
+    if (VIDEO_PROMS.has(prom)) {
+      emu.setVideoProm(prom);
+      saveStoredSettings(emu.getSettings());
+      syncSettingsModalFromEmu();
+      showToast(`Video glyph PROM switched to ${prom}`, 'info');
+    }
+  });
+
   dom.settingsRomSwitch.addEventListener('change', () => {
-    emu.updateSettings({ romSwitch: Boolean(dom.settingsRomSwitch.checked) });
+    applySetting({ romSwitch: Boolean(dom.settingsRomSwitch.checked) });
+  });
+
+  dom.settingsLowerPage.addEventListener('change', () => {
+    applySetting({ lowerPage: Boolean(dom.settingsLowerPage.checked) });
+  });
+
+  dom.settingsPmReadback?.addEventListener('change', () => {
+    applySetting({ pmReadback: Boolean(dom.settingsPmReadback.checked) });
+  });
+
+  dom.settingsMapperCoversRom?.addEventListener('change', () => {
+    applySetting({ mapperCoversRom: Boolean(dom.settingsMapperCoversRom.checked) });
+  });
+
+  dom.settingsPb5?.addEventListener('change', () => {
+    applySetting({ pb5: Boolean(dom.settingsPb5.checked) });
+  });
+
+  dom.settingsJt1?.addEventListener('change', () => {
+    const on = Boolean(dom.settingsJt1.checked);
+    emu.setJt1(on);
     saveStoredSettings(emu.getSettings());
     renderAll();
   });
 
-  dom.settingsLowerPage.addEventListener('change', () => {
-    emu.updateSettings({ lowerPage: Boolean(dom.settingsLowerPage.checked) });
+  dom.settingsCtc3?.addEventListener('change', () => {
+    applySetting({ ctc3: Boolean(dom.settingsCtc3.checked) });
+  });
+
+  dom.settingsXcpmKeys?.addEventListener('change', () => {
+    const on = Boolean(dom.settingsXcpmKeys.checked);
+    emu.setXcpmKeys(on);
     saveStoredSettings(emu.getSettings());
     renderAll();
+  });
+
+  dom.settingsCentronics?.addEventListener('change', () => {
+    applySetting({ centronics: Boolean(dom.settingsCentronics.checked) });
+  });
+
+  // Winchester Hard Disk (-W)
+  dom.btnHdInsert?.addEventListener('click', () => {
+    if (!dom.inputHdFile) return;
+    dom.inputHdFile.value = '';
+    dom.inputHdFile.click();
+  });
+  dom.inputHdFile?.addEventListener('change', async () => {
+    const file = dom.inputHdFile.files?.[0];
+    if (!file) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const res = emu.insertWinchesterBytes(file.name, bytes);
+      renderAll();
+      if (res.ok) {
+        showToast(`Attached Winchester image ${file.name} (${formatByteCount(res.size)})`, 'success');
+      } else {
+        showToast(res.error || 'Failed to mount Winchester image.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error reading ${file.name}: ${err?.message || err}`, 'error');
+    }
+  });
+  dom.btnHdBlank?.addEventListener('click', () => {
+    const res = emu.insertBlankWinchester(4896);
+    renderAll();
+    if (res.ok) {
+      showToast('Attached blank 5 MB Winchester hard disk', 'success');
+    } else {
+      showToast(res.error || 'Failed to attach blank Winchester disk.', 'error');
+    }
+  });
+  dom.btnHdSave?.addEventListener('click', () => {
+    const saved = emu.saveWinchesterBytes();
+    if (!saved) {
+      showToast('No Winchester hard disk attached to save.', 'warn');
+      return;
+    }
+    triggerBrowserDownload(saved.bytes, saved.name);
+    showToast(`Saved ${saved.name}`, 'success');
+  });
+  dom.btnHdEject?.addEventListener('click', () => {
+    emu.ejectWinchester();
+    renderAll();
+    showToast('Ejected Winchester hard disk', 'info');
+  });
+
+  // 691 Cartridge Hard Disk (-J)
+  dom.btnJInsert?.addEventListener('click', () => {
+    if (!dom.inputJFile) return;
+    dom.inputJFile.value = '';
+    dom.inputJFile.click();
+  });
+  dom.inputJFile?.addEventListener('change', async () => {
+    const file = dom.inputJFile.files?.[0];
+    if (!file) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const res = emu.insertCartridgeBytes(file.name, bytes);
+      renderAll();
+      if (res.ok) {
+        showToast(`Attached 691 Cartridge Unit ${res.unit}: ${file.name}`, 'success');
+      } else {
+        showToast(res.error || 'Failed to attach 691 cartridge image.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error reading ${file.name}: ${err?.message || err}`, 'error');
+    }
+  });
+  dom.btnJBlank?.addEventListener('click', () => {
+    const res = emu.insertBlankCartridge();
+    renderAll();
+    if (res.ok) {
+      showToast(`Attached blank 691 Cartridge Unit ${res.unit}`, 'success');
+    } else {
+      showToast(res.error || 'Failed to attach blank 691 cartridge.', 'error');
+    }
+  });
+  dom.btnJSave?.addEventListener('click', () => {
+    const saved = emu.saveCartridgeBytes(0);
+    if (!saved) {
+      showToast('No 691 Cartridge Unit 0 available to save.', 'warn');
+      return;
+    }
+    triggerBrowserDownload(saved.bytes, saved.name);
+    showToast(`Saved ${saved.name}`, 'success');
+  });
+  dom.btnJEject?.addEventListener('click', () => {
+    emu.ejectAllCartridges();
+    renderAll();
+    showToast('Ejected all 691 cartridge units', 'info');
+  });
+  dom.settingsJPort?.addEventListener('change', () => {
+    const jPort = Number.parseInt(dom.settingsJPort.value, 10) === 0x14 ? 0x14 : 0x10;
+    applySetting({ jPort });
+  });
+  dom.settingsJWprot?.addEventListener('change', () => {
+    const on = Boolean(dom.settingsJWprot.checked);
+    emu.setJWprot(on);
+    saveStoredSettings(emu.getSettings());
+    renderAll();
+  });
+
+  // Timing & Calibration
+  dom.settingsDrivePct?.addEventListener('change', () => {
+    const raw = Number.parseInt(dom.settingsDrivePct.value, 10);
+    const drivePct = Number.isFinite(raw) ? Math.max(-10, Math.min(10, raw)) : 0;
+    applySetting({ drivePct });
+  });
+  dom.settingsRamFill?.addEventListener('change', () => {
+    const raw = Number.parseInt(dom.settingsRamFill.value, 10);
+    const ramFill = Number.isFinite(raw) && raw >= 0 ? Math.min(255, raw) : -1;
+    applySetting({ ramFill });
+  });
+  dom.settingsPrnBusy?.addEventListener('change', () => {
+    const raw = Number.parseInt(dom.settingsPrnBusy.value, 10);
+    const prnBusyMs = Number.isFinite(raw) ? Math.max(0, Math.min(500, raw)) : 0;
+    applySetting({ prnBusyMs });
+  });
+
+  // Tools: Save Screen PNG & Dump Memory
+  dom.btnToolScreenshot?.addEventListener('click', () => {
+    if (!dom.canvas) return;
+    try {
+      const dataUrl = dom.canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = 'cc665-screen.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Saved cc665-screen.png', 'success');
+    } catch (err) {
+      showToast(`Screenshot failed: ${err?.message || err}`, 'error');
+    }
+  });
+
+  dom.btnToolDumpMem?.addEventListener('click', () => {
+    const bytes = emu.dumpMemoryBytes();
+    if (!bytes || bytes.length === 0) {
+      showToast('Power on the Compucorp 665 before dumping memory.', 'warn');
+      return;
+    }
+    triggerBrowserDownload(bytes, 'cc665-ram-64k.bin');
+    showToast(`Downloaded cc665-ram-64k.bin (${formatByteCount(bytes.length)})`, 'success');
   });
 
   for (let d = 0; d < 4; d++) {
@@ -1531,13 +1990,17 @@ function wireSettingsEvents() {
     const def = sanitizeSettings(DEFAULT_SETTINGS);
     emu.setFast(def.fast);
     emu.setPhosphor(def.phosphor);
+    emu.setVideoProm(def.videoProm);
+    emu.setJt1(def.jt1);
+    emu.setXcpmKeys(def.xcpmKeys);
+    emu.setJWprot(def.jWprot);
     for (let d = 0; d < 4; d++) {
       emu.setWriteProtect(d, def.wprot[d]);
     }
     emu.updateSettings(def);
     saveStoredSettings(emu.getSettings());
     renderAll();
-    showToast('Settings reset to defaults (2 boards, 60 Hz, 665 Cyan)', 'info');
+    showToast('Settings reset to defaults (2 boards, 60 Hz, US PROM, 665 Cyan)', 'info');
   });
 }
 
@@ -1549,11 +2012,13 @@ function openPrinterModal() {
 }
 
 async function handleCopyPrinterText() {
-  const bytes = emu.getPrinterBytes();
+  const bytes = getActivePrinterBytes();
   if (bytes.length === 0) return;
   const content =
     printerViewMode === 'rendered'
-      ? renderDiabloText(bytes).text
+      ? printerSource === 'cen'
+        ? emu.getCentronicsText()
+        : renderDiabloText(bytes).text
       : formatRawPrinterHexAndAscii(bytes);
 
   if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
@@ -1582,27 +2047,36 @@ async function handleCopyPrinterText() {
 }
 
 function handleDownloadPrinterTxt() {
-  const bytes = emu.getPrinterBytes();
+  const bytes = getActivePrinterBytes();
   if (bytes.length === 0) return;
-  const { text } = renderDiabloText(bytes);
+  const text = printerSource === 'cen' ? emu.getCentronicsText() : renderDiabloText(bytes).text;
+  const name = printerSource === 'cen' ? 'cc665-centronics.txt' : 'cc665-printer.txt';
   const encoded = new TextEncoder().encode(text);
-  triggerBrowserDownload(encoded, 'cc665-printer.txt', 'text/plain;charset=utf-8');
-  showToast('Downloaded cc665-printer.txt', 'success');
+  triggerBrowserDownload(encoded, name, 'text/plain;charset=utf-8');
+  showToast(`Downloaded ${name}`, 'success');
 }
 
 function handleDownloadPrinterBin() {
-  const bytes = emu.getPrinterBytes();
+  const bytes = getActivePrinterBytes();
   if (bytes.length === 0) return;
-  triggerBrowserDownload(bytes, 'cc665-printer-raw.bin', 'application/octet-stream');
-  showToast('Downloaded cc665-printer-raw.bin', 'success');
+  const name = printerSource === 'cen' ? 'cc665-centronics-raw.bin' : 'cc665-printer-raw.bin';
+  triggerBrowserDownload(bytes, name, 'application/octet-stream');
+  showToast(`Downloaded ${name}`, 'success');
 }
 
 function handleClearPrinter() {
-  emu.clearPrinter();
-  lastRenderedPrinterBytes = -1;
+  if (printerSource === 'cen') {
+    emu.clearCentronics();
+  } else {
+    emu.clearPrinter();
+  }
+  lastRenderedPrinterKey = '';
   renderPrinterModal(true);
   renderAll();
-  showToast('Cleared captured printer output', 'info');
+  showToast(
+    `Cleared ${printerSource === 'cen' ? 'Centronics' : 'SIO B'} printer output`,
+    'info'
+  );
 }
 
 /* ---- Paste Text Modal ---- */
@@ -1819,7 +2293,9 @@ function wireControls() {
       }
     });
     slot.btnUnfmt.addEventListener('click', () => handleUnformattedDisk(d));
-    slot.btnSave.addEventListener('click', () => downloadDriveDisk(d));
+    slot.btnSave.addEventListener('click', (e) =>
+      downloadDriveDisk(d, e.shiftKey ? 'cc665' : 'img')
+    );
     slot.btnEject.addEventListener('click', () => handleEjectDisk(d));
     slot.btnWp.addEventListener('click', () => handleToggleWriteProtect(d));
   }
@@ -1840,6 +2316,14 @@ function wireControls() {
   // Printer Modal events
   dom.btnClosePrinter.addEventListener('click', () => closeModal(dom.modalPrinter));
   dom.btnPrinterClose.addEventListener('click', () => closeModal(dom.modalPrinter));
+  dom.btnPrinterSrcSio?.addEventListener('click', () => {
+    printerSource = 'sio';
+    renderPrinterModal(true);
+  });
+  dom.btnPrinterSrcCen?.addEventListener('click', () => {
+    printerSource = 'cen';
+    renderPrinterModal(true);
+  });
   dom.btnPrinterViewRendered.addEventListener('click', () => {
     printerViewMode = 'rendered';
     renderPrinterModal(true);

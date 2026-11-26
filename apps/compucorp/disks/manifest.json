@@ -1,11 +1,50 @@
 {
-  "generatedAt": "2026-11-24T20:49:47Z",
+  "generatedAt": "2026-11-26T19:26:00Z",
   "mode": "public",
   "defaults": {
     "driveA": "cc665-diag",
     "driveB": "omega-docs"
   },
   "disks": [
+    {
+      "id": "xcpm-665",
+      "title": "xcpmz80 for Compucorp 665 (Standard)",
+      "category": "Operating Systems",
+      "file": "disks/xcpm.img",
+      "size": 315392,
+      "defaultDrive": 0,
+      "minBoards": 0,
+      "requiresPb5": true,
+      "xcpmKeys": true,
+      "description": "Open-source CP/M-compatible OS for the Compucorp 665 with FAT12 disks, 4 KB track buffer, 34 KB TPA, and utilities (TIME, FORMAT, SYS, DSKTEST, RAMDRV). Automatically enables PB5 ROM-off mod and xcpmz80 keyboard layout.",
+      "public": true
+    },
+    {
+      "id": "xcpm-665-t3",
+      "title": "xcpmz80 for Compucorp 665 (36K TPA)",
+      "category": "Operating Systems",
+      "file": "disks/xcpm_t3.img",
+      "size": 315392,
+      "defaultDrive": 0,
+      "minBoards": 0,
+      "requiresPb5": true,
+      "xcpmKeys": true,
+      "description": "Compact 3-sector buffer build of xcpmz80 providing 36 KB TPA for larger CP/M programs. Automatically enables PB5 ROM-off mod and xcpmz80 keyboard layout.",
+      "public": true
+    },
+    {
+      "id": "xcpm-665-10",
+      "title": "xcpmz80 for Compucorp 665 (60 Hz 24x10)",
+      "category": "Operating Systems",
+      "file": "disks/xcpm_10.img",
+      "size": 315392,
+      "defaultDrive": 0,
+      "minBoards": 0,
+      "requiresPb5": true,
+      "xcpmKeys": true,
+      "description": "xcpmz80 build configured for 60 Hz 10-scanline CRT timing (24 rows x 10 scanlines). Automatically enables PB5 ROM-off mod and xcpmz80 keyboard layout.",
+      "public": true
+    },
     {
       "id": "omega-docs",
       "title": "Omega Document Disk (DOCS)",
@@ -55,7 +94,7 @@
       "size": 315392,
       "defaultDrive": 0,
       "minBoards": 0,
-      "description": "Tests candidate output ports (port 74h, PIO B spare pins, SIO B lines) to see if any unmap the boot ROM. Enable ROM-off switch in Settings to see port 74h react.",
+      "description": "Tests candidate output ports (port 74h, PIO B spare pins, SIO B lines) to see if any unmap the boot ROM. Enable PB5 or port 74h ROM-off in Settings to test.",
       "public": true
     }
   ]

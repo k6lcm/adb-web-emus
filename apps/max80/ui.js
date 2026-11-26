@@ -22,9 +22,11 @@ const BOOT_DEVICE_NAMES =
 
 const DEFAULT_SETTINGS = Object.freeze({
   dips: 2,
+  memMode: '128',
   mem64: false,
   quick: false,
   fast: false,
+  timeSet: false,
   three: [false, false, false, false],
   wprot: [false, false, false, false],
   phosphor: 'white'
@@ -38,9 +40,16 @@ function sanitizeSettings(raw) {
     typeof src.dips === 'number' && Number.isFinite(src.dips)
       ? src.dips & 0xff
       : DEFAULT_SETTINGS.dips;
-  const mem64 = Boolean(src.mem64);
+  const memMode =
+    src.memMode === '64' || src.memMode === '64f' || src.memMode === '128'
+      ? src.memMode
+      : src.mem64
+        ? '64'
+        : '128';
+  const mem64 = memMode !== '128';
   const quick = Boolean(src.quick);
   const fast = Boolean(src.fast);
+  const timeSet = Boolean(src.timeSet);
   const three = [0, 1, 2, 3].map((i) =>
     Array.isArray(src.three) ? Boolean(src.three[i]) : false
   );
@@ -51,7 +60,7 @@ function sanitizeSettings(raw) {
     ? src.phosphor
     : 'white';
 
-  return { dips, mem64, quick, fast, three, wprot, phosphor };
+  return { dips, memMode, mem64, quick, fast, timeSet, three, wprot, phosphor };
 }
 
 function loadStoredSettings() {
@@ -120,6 +129,13 @@ function formatDipReadout(dips) {
   return `${hex} (${bin})`;
 }
 
+function formatByteCount(n) {
+  const bytes = Math.max(0, Number(n) || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function formatKindLabel(state) {
   if (!state || !state.loaded) return '';
   if (state.blank) return 'Blank';
@@ -141,6 +157,8 @@ const dom = {
   libraryCountBadge: document.getElementById('library-count-badge'),
   btnPaste: document.getElementById('btn-paste'),
   btnOsk: document.getElementById('btn-osk'),
+  btnPrinter: document.getElementById('btn-printer'),
+  printerCountBadge: document.getElementById('printer-count-badge'),
   btnMute: document.getElementById('btn-mute'),
   btnMuteIcon: document.getElementById('btn-mute-icon'),
   btnMuteText: document.getElementById('btn-mute-text'),
@@ -192,8 +210,16 @@ const dom = {
   ),
   settingsMem128: document.getElementById('settings-mem-128'),
   settingsMem64: document.getElementById('settings-mem-64'),
+  settingsMem64f: document.getElementById('settings-mem-64f'),
   settingsTimingAuth: document.getElementById('settings-timing-auth'),
   settingsTimingQuick: document.getElementById('settings-timing-quick'),
+  settingsTimeSet: document.getElementById('settings-time-set'),
+  settingsHdStatus: document.getElementById('settings-hd-status'),
+  btnHdMount: document.getElementById('btn-hd-mount'),
+  btnHdBlank: document.getElementById('btn-hd-blank'),
+  btnHdSave: document.getElementById('btn-hd-save'),
+  btnHdEject: document.getElementById('btn-hd-eject'),
+  inputHdFile: document.getElementById('input-hd-file'),
   settingsThree: [0, 1, 2, 3].map((d) =>
     document.getElementById(`settings-three-${d}`)
   ),
@@ -203,6 +229,16 @@ const dom = {
   settingsPhosphorWhite: document.getElementById('settings-phosphor-white'),
   settingsPhosphorGreen: document.getElementById('settings-phosphor-green'),
   settingsPhosphorAmber: document.getElementById('settings-phosphor-amber'),
+
+  modalPrinter: document.getElementById('modal-printer'),
+  printerSubtitle: document.getElementById('printer-subtitle'),
+  btnClosePrinter: document.getElementById('btn-close-printer'),
+  printerOutput: document.getElementById('printer-output'),
+  btnPrinterCopy: document.getElementById('btn-printer-copy'),
+  btnPrinterDlTxt: document.getElementById('btn-printer-dl-txt'),
+  btnPrinterDlBin: document.getElementById('btn-printer-dl-bin'),
+  btnPrinterClear: document.getElementById('btn-printer-clear'),
+  btnPrinterClose: document.getElementById('btn-printer-close'),
 
   modalPaste: document.getElementById('modal-paste'),
   btnClosePaste: document.getElementById('btn-close-paste'),
@@ -264,6 +300,7 @@ const ALL_MODALS = [
   dom.modalLibrary,
   dom.modalSettings,
   dom.modalPaste,
+  dom.modalPrinter,
   dom.modalAbout
 ];
 
@@ -339,6 +376,12 @@ function renderTopbar() {
     dom.btnOsk.setAttribute('aria-pressed', String(oskVisible));
   }
 
+  if (dom.printerCountBadge) {
+    const printerBytes = emu.getPrinterByteCount ? emu.getPrinterByteCount() : 0;
+    dom.printerCountBadge.hidden = printerBytes <= 0;
+    dom.printerCountBadge.textContent = formatByteCount(printerBytes);
+  }
+
   dom.btnMute.classList.toggle('is-active', muted);
   dom.btnMute.setAttribute('aria-pressed', String(muted));
   dom.btnMuteIcon.textContent = muted ? '\u{1F507}' : '\u{1F50A}';
@@ -409,15 +452,35 @@ function syncSettingsModalFromEmu() {
     }
   }
 
-  dom.settingsMem64.checked = Boolean(s.mem64);
-  dom.settingsMem128.checked = !s.mem64;
+  dom.settingsMem128.checked = s.memMode === '128';
+  dom.settingsMem64.checked = s.memMode === '64';
+  if (dom.settingsMem64f) {
+    dom.settingsMem64f.checked = s.memMode === '64f';
+  }
 
   dom.settingsTimingQuick.checked = Boolean(s.quick);
   dom.settingsTimingAuth.checked = !s.quick;
+  if (dom.settingsTimeSet) {
+    dom.settingsTimeSet.checked = Boolean(s.timeSet);
+  }
 
   for (let d = 0; d < 4; d++) {
     if (dom.settingsThree[d]) dom.settingsThree[d].checked = Boolean(s.three[d]);
     if (dom.settingsWprot[d]) dom.settingsWprot[d].checked = Boolean(s.wprot[d]);
+  }
+
+  if (dom.settingsHdStatus) {
+    const hd = emu.getHardDiskState ? emu.getHardDiskState() : { loaded: false, name: '', blocks: 0 };
+    if (hd.loaded) {
+      const mb = ((hd.blocks * 512) / (1024 * 1024)).toFixed(2);
+      dom.settingsHdStatus.textContent = `${hd.name || 'SASI Hard Disk'} (${hd.blocks} blocks, ${mb} MB)`;
+      dom.settingsHdStatus.classList.remove('is-empty');
+    } else {
+      dom.settingsHdStatus.textContent = 'No hard disk mounted';
+      dom.settingsHdStatus.classList.add('is-empty');
+    }
+    if (dom.btnHdSave) dom.btnHdSave.disabled = !hd.loaded;
+    if (dom.btnHdEject) dom.btnHdEject.disabled = !hd.loaded;
   }
 
   dom.settingsPhosphorWhite.checked = s.phosphor === 'white';
@@ -427,11 +490,26 @@ function syncSettingsModalFromEmu() {
   dom.settingsRestartBanner.hidden = !(emu.isPoweredOn() && pendingRestartNeeded);
 }
 
+function renderPrinterModal() {
+  if (!dom.printerOutput || !dom.printerStatus) return;
+  const byteCount = emu.getPrinterByteCount ? emu.getPrinterByteCount() : 0;
+  const text = emu.getPrinterText ? emu.getPrinterText() : '';
+  dom.printerOutput.textContent = text || '(No parallel printer output captured yet.)';
+  dom.printerStatus.textContent =
+    byteCount > 0 ? `${byteCount.toLocaleString()} bytes captured` : 'No output captured yet';
+  if (dom.btnPrinterCopy) dom.btnPrinterCopy.disabled = byteCount <= 0;
+  if (dom.btnPrinterDownload) dom.btnPrinterDownload.disabled = byteCount <= 0;
+  if (dom.btnPrinterClear) dom.btnPrinterClear.disabled = byteCount <= 0;
+}
+
 function renderAll() {
   renderTopbar();
   renderDrives();
   if (!dom.modalSettings.hidden) {
     syncSettingsModalFromEmu();
+  }
+  if (dom.modalPrinter && !dom.modalPrinter.hidden) {
+    renderPrinterModal();
   }
 }
 
@@ -1143,8 +1221,10 @@ function wireSettingsEvents() {
   }
 
   const onMemChange = () => {
-    const mem64 = Boolean(dom.settingsMem64.checked);
-    const res = emu.updateSettings({ mem64 });
+    let memMode = '128';
+    if (dom.settingsMem64f?.checked) memMode = '64f';
+    else if (dom.settingsMem64?.checked) memMode = '64';
+    const res = emu.updateSettings({ memMode, mem64: memMode !== '128' });
     if (emu.isPoweredOn() || res?.needsRestart) {
       pendingRestartNeeded = emu.isPoweredOn();
     }
@@ -1153,6 +1233,7 @@ function wireSettingsEvents() {
   };
   dom.settingsMem128.addEventListener('change', onMemChange);
   dom.settingsMem64.addEventListener('change', onMemChange);
+  dom.settingsMem64f?.addEventListener('change', onMemChange);
 
   const onTimingChange = () => {
     const quick = Boolean(dom.settingsTimingQuick.checked);
@@ -1165,6 +1246,83 @@ function wireSettingsEvents() {
   };
   dom.settingsTimingAuth.addEventListener('change', onTimingChange);
   dom.settingsTimingQuick.addEventListener('change', onTimingChange);
+
+  dom.settingsTimeSet?.addEventListener('change', () => {
+    const held = Boolean(dom.settingsTimeSet.checked);
+    emu.setTimeSet(held);
+    emu.updateSettings({ timeSet: held });
+    saveStoredSettings(emu.getSettings());
+    syncSettingsModalFromEmu();
+  });
+
+  // SASI Hard Disk controls
+  dom.btnHdInsert?.addEventListener('click', () => {
+    if (!dom.inputHdFile) return;
+    dom.inputHdFile.value = '';
+    dom.inputHdFile.click();
+  });
+  dom.inputHdFile?.addEventListener('change', async () => {
+    const file = dom.inputHdFile.files?.[0];
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const res = await emu.insertHardDiskBytes(file.name, new Uint8Array(buf));
+      if (!res?.ok) {
+        showToast(res?.error || `Failed to mount ${file.name}.`, 'error');
+      } else {
+        showToast(`Mounted SASI hard disk ${file.name} (${res.blocks} blocks)`, 'success');
+      }
+      renderAll();
+    } catch (err) {
+      showToast(`Error loading hard disk ${file.name}: ${err?.message || err}`, 'error');
+    }
+  });
+  dom.btnHdBlank?.addEventListener('click', async () => {
+    try {
+      const res = await emu.insertBlankHardDisk(10240);
+      if (!res?.ok) {
+        showToast(res?.error || 'Failed to create blank SASI hard disk.', 'error');
+      } else {
+        showToast(`Created blank 5 MB SASI hard disk (${res.blocks} blocks)`, 'success');
+      }
+      renderAll();
+    } catch (err) {
+      showToast(`Could not create blank hard disk: ${err?.message || err}`, 'error');
+    }
+  });
+  dom.btnHdSave?.addEventListener('click', async () => {
+    try {
+      const saved = await emu.saveHardDiskBytes();
+      if (!saved?.bytes) {
+        showToast('No SASI hard disk mounted to save.', 'warn');
+        return;
+      }
+      const filename = saved.name && /\.img$/i.test(saved.name)
+        ? saved.name
+        : `${saved.name || 'max80-sasi'}.img`;
+      const blob = new Blob([saved.bytes], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      showToast(`Saved SASI hard disk ${filename}`, 'success');
+    } catch (err) {
+      showToast(`Failed to save hard disk: ${err?.message || err}`, 'error');
+    }
+  });
+  dom.btnHdEject?.addEventListener('click', async () => {
+    try {
+      await emu.ejectHardDisk();
+      renderAll();
+      showToast('Ejected SASI hard disk', 'info');
+    } catch (err) {
+      showToast(`Failed to eject hard disk: ${err?.message || err}`, 'error');
+    }
+  });
 
   for (let d = 0; d < 4; d++) {
     dom.settingsThree[d]?.addEventListener('change', (e) => {
@@ -1215,6 +1373,7 @@ function wireSettingsEvents() {
     emu.setDips(def.dips);
     emu.setFast(def.fast);
     emu.setPhosphor(def.phosphor);
+    emu.setTimeSet(def.timeSet);
     for (let d = 0; d < 4; d++) {
       emu.setWriteProtect(d, def.wprot[d]);
     }
@@ -1348,6 +1507,45 @@ function wireDragAndDrop() {
   }
 }
 
+/* ---- Parallel Printer Modal ---- */
+
+function openPrinterModal() {
+  renderPrinterModal();
+  openModal(dom.modalPrinter, dom.btnPrinterClose);
+}
+
+async function handlePrinterCopy() {
+  const text = emu.getPrinterText ? emu.getPrinterText() : '';
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied printer output to clipboard', 'success');
+  } catch {
+    showToast('Could not copy to clipboard', 'warn');
+  }
+}
+
+function handlePrinterDownload() {
+  const bytes = emu.getPrinterBytes ? emu.getPrinterBytes() : null;
+  if (!bytes || bytes.length === 0) return;
+  const blob = new Blob([bytes], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'max80-printer.txt';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('Downloaded max80-printer.txt', 'success');
+}
+
+function handlePrinterClear() {
+  emu.clearPrinter();
+  renderAll();
+  showToast('Cleared parallel printer buffer', 'info');
+}
+
 /* ---- Event Listeners & Global Shortcuts ---- */
 
 function wireControls() {
@@ -1376,6 +1574,10 @@ function wireControls() {
 
   dom.btnPaste.addEventListener('click', () => {
     openPasteModal();
+  });
+
+  dom.btnPrinter?.addEventListener('click', () => {
+    openPrinterModal();
   });
 
   if (dom.btnOsk) {
@@ -1440,13 +1642,26 @@ function wireControls() {
   dom.btnPasteSend.addEventListener('click', () => handleSendPaste());
   dom.btnPasteClipboard.addEventListener('click', () => handleReadClipboardIntoPaste());
 
+  // Printer Modal events
+  dom.btnClosePrinter?.addEventListener('click', () => closeModal(dom.modalPrinter));
+  dom.btnPrinterClose?.addEventListener('click', () => closeModal(dom.modalPrinter));
+  dom.btnPrinterCopy?.addEventListener('click', () => handlePrinterCopy());
+  dom.btnPrinterDownload?.addEventListener('click', () => handlePrinterDownload());
+  dom.btnPrinterClear?.addEventListener('click', () => handlePrinterClear());
+
   // About Modal close
   dom.btnCloseAbout.addEventListener('click', () => closeModal(dom.modalAbout));
   dom.btnAboutClose.addEventListener('click', () => closeModal(dom.modalAbout));
 
   // Click on backdrop outside modal panel to close
-  for (const modal of [dom.modalLibrary, dom.modalSettings, dom.modalPaste, dom.modalAbout]) {
-    modal.addEventListener('mousedown', (e) => {
+  for (const modal of [
+    dom.modalLibrary,
+    dom.modalSettings,
+    dom.modalPaste,
+    dom.modalPrinter,
+    dom.modalAbout
+  ]) {
+    modal?.addEventListener('mousedown', (e) => {
       if (e.target === modal) {
         closeModal(modal);
       }
@@ -1463,7 +1678,7 @@ function wireControls() {
     }
   });
 
-  // UI Keyboard Shortcuts (Alt+1..4, Alt+R, Alt+F, Alt+K, Alt+,, Escape for open modals)
+  // UI Keyboard Shortcuts (Alt+1..4, Alt+R, Alt+F, Alt+K, Alt+P, Alt+,, Escape for open modals)
   // NOTE: Never intercept Ctrl shortcuts; Ctrl belongs to the MAX-80!
   window.addEventListener(
     'keydown',
@@ -1477,6 +1692,8 @@ function wireControls() {
           resolveDipModal(false);
         } else if (!dom.modalPaste.hidden) {
           closeModal(dom.modalPaste);
+        } else if (dom.modalPrinter && !dom.modalPrinter.hidden) {
+          closeModal(dom.modalPrinter);
         } else if (!dom.modalSettings.hidden) {
           closeModal(dom.modalSettings);
         } else if (!dom.modalLibrary.hidden) {
@@ -1511,6 +1728,9 @@ function wireControls() {
         if (osk) {
           osk.toggleVisible();
         }
+      } else if (key === 'p') {
+        e.preventDefault();
+        openPrinterModal();
       } else if (key === ',') {
         e.preventDefault();
         syncSettingsModalFromEmu();

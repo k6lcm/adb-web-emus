@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compucorp 665 Emulator</title>
-  <link rel="stylesheet" href="./style.css?v=5">
+  <link rel="stylesheet" href="./style.css?v=6">
 </head>
 <body>
   <div id="app-shell" class="app-shell">
@@ -95,8 +95,8 @@
             <canvas id="screen-canvas" width="800" height="600" aria-label="Compucorp 665 CRT Display"></canvas>
             <div id="screen-drop-overlay" class="drop-overlay" hidden>
               <div class="drop-overlay-box">
-                <div class="drop-overlay-title">Drop .img to insert in Drive A:</div>
-                <div class="drop-overlay-sub">Or drop onto any Drive Card below (A: through D: &middot; optional .id pair supported)</div>
+                <div class="drop-overlay-title">Drop disk image to insert in Drive A:</div>
+                <div class="drop-overlay-sub">Supports .img (+ optional .id), .cc665, .hfe, and .scp flux images &middot; or drop onto any Drive Card below</div>
               </div>
             </div>
           </div>
@@ -110,9 +110,11 @@
             <span id="hw-mem-text" class="hw-status-item">MEM 64K+2&times;64K &middot; C000: MAIN</span>
             <span class="hw-status-sep" aria-hidden="true">&middot;</span>
             <span id="hw-mains-text" class="hw-status-item">MAINS 60 Hz</span>
+            <span id="hw-flags-sep" class="hw-status-sep" aria-hidden="true" hidden>&middot;</span>
+            <span id="hw-flags-text" class="hw-status-item hw-flags" hidden></span>
           </div>
           <div class="hw-status-right">
-            <button id="btn-hw-ser" type="button" class="hw-ser-btn" title="SIO Channel B Printer Activity &mdash; Click to open Printer Output (Alt+P)">
+            <button id="btn-hw-ser" type="button" class="hw-ser-btn" title="Printer Activity &mdash; Click to open Printer Output (Alt+P)">
               <span id="hw-ser-led" class="hw-led" aria-hidden="true"></span>
               <span class="hw-ser-label">SER</span>
               <span id="hw-ser-bytes" class="hw-ser-bytes">0 B</span>
@@ -158,13 +160,13 @@
         </div>
         <div id="drive-name-0" class="drive-filename is-empty" title="Empty">Empty</div>
         <div class="drive-actions">
-          <button id="drive-insert-0" type="button" class="btn btn-xs" title="Insert .img disk image into A: (Alt+1)">Insert</button>
+          <button id="drive-insert-0" type="button" class="btn btn-xs" title="Insert .img/.cc665/.hfe/.scp disk image into A: (Alt+1)">Insert</button>
           <button id="drive-unfmt-btn-0" type="button" class="btn btn-xs" title="Insert unformatted disk into A:">Unfmt</button>
-          <button id="drive-save-0" type="button" class="btn btn-xs" title="Download current A: disk image as .img" disabled>Save As</button>
+          <button id="drive-save-0" type="button" class="btn btn-xs" title="Download current A: disk image (.img; Shift+Click for .cc665)" disabled>Save As</button>
           <button id="drive-eject-0" type="button" class="btn btn-xs" title="Eject disk from A:" disabled>Eject</button>
           <button id="drive-wp-0" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive A:">WP</button>
         </div>
-        <input id="drive-file-0" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+        <input id="drive-file-0" type="file" accept=".img,.IMG,.cc665,.CC665,.hfe,.HFE,.scp,.SCP,.id,.ID" multiple class="sr-only" tabindex="-1">
       </div>
 
       <!-- Drive B: -->
@@ -182,13 +184,13 @@
         </div>
         <div id="drive-name-1" class="drive-filename is-empty" title="Empty">Empty</div>
         <div class="drive-actions">
-          <button id="drive-insert-1" type="button" class="btn btn-xs" title="Insert .img disk image into B: (Alt+2)">Insert</button>
+          <button id="drive-insert-1" type="button" class="btn btn-xs" title="Insert .img/.cc665/.hfe/.scp disk image into B: (Alt+2)">Insert</button>
           <button id="drive-unfmt-btn-1" type="button" class="btn btn-xs" title="Insert unformatted disk into B:">Unfmt</button>
-          <button id="drive-save-1" type="button" class="btn btn-xs" title="Download current B: disk image as .img" disabled>Save As</button>
+          <button id="drive-save-1" type="button" class="btn btn-xs" title="Download current B: disk image (.img; Shift+Click for .cc665)" disabled>Save As</button>
           <button id="drive-eject-1" type="button" class="btn btn-xs" title="Eject disk from B:" disabled>Eject</button>
           <button id="drive-wp-1" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive B:">WP</button>
         </div>
-        <input id="drive-file-1" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+        <input id="drive-file-1" type="file" accept=".img,.IMG,.cc665,.CC665,.hfe,.HFE,.scp,.SCP,.id,.ID" multiple class="sr-only" tabindex="-1">
       </div>
 
       <!-- Drive C: -->
@@ -206,13 +208,13 @@
         </div>
         <div id="drive-name-2" class="drive-filename is-empty" title="Empty">Empty</div>
         <div class="drive-actions">
-          <button id="drive-insert-2" type="button" class="btn btn-xs" title="Insert .img disk image into C: (Alt+3)">Insert</button>
+          <button id="drive-insert-2" type="button" class="btn btn-xs" title="Insert .img/.cc665/.hfe/.scp disk image into C: (Alt+3)">Insert</button>
           <button id="drive-unfmt-btn-2" type="button" class="btn btn-xs" title="Insert unformatted disk into C:">Unfmt</button>
-          <button id="drive-save-2" type="button" class="btn btn-xs" title="Download current C: disk image as .img" disabled>Save As</button>
+          <button id="drive-save-2" type="button" class="btn btn-xs" title="Download current C: disk image (.img; Shift+Click for .cc665)" disabled>Save As</button>
           <button id="drive-eject-2" type="button" class="btn btn-xs" title="Eject disk from C:" disabled>Eject</button>
           <button id="drive-wp-2" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive C:">WP</button>
         </div>
-        <input id="drive-file-2" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+        <input id="drive-file-2" type="file" accept=".img,.IMG,.cc665,.CC665,.hfe,.HFE,.scp,.SCP,.id,.ID" multiple class="sr-only" tabindex="-1">
       </div>
 
       <!-- Drive D: -->
@@ -230,13 +232,13 @@
         </div>
         <div id="drive-name-3" class="drive-filename is-empty" title="Empty">Empty</div>
         <div class="drive-actions">
-          <button id="drive-insert-3" type="button" class="btn btn-xs" title="Insert .img disk image into D: (Alt+4)">Insert</button>
+          <button id="drive-insert-3" type="button" class="btn btn-xs" title="Insert .img/.cc665/.hfe/.scp disk image into D: (Alt+4)">Insert</button>
           <button id="drive-unfmt-btn-3" type="button" class="btn btn-xs" title="Insert unformatted disk into D:">Unfmt</button>
-          <button id="drive-save-3" type="button" class="btn btn-xs" title="Download current D: disk image as .img" disabled>Save As</button>
+          <button id="drive-save-3" type="button" class="btn btn-xs" title="Download current D: disk image (.img; Shift+Click for .cc665)" disabled>Save As</button>
           <button id="drive-eject-3" type="button" class="btn btn-xs" title="Eject disk from D:" disabled>Eject</button>
           <button id="drive-wp-3" type="button" class="btn btn-xs btn-wp" aria-pressed="false" title="Toggle write protection on Drive D:">WP</button>
         </div>
-        <input id="drive-file-3" type="file" accept=".img,.IMG,.id,.ID" multiple class="sr-only" tabindex="-1">
+        <input id="drive-file-3" type="file" accept=".img,.IMG,.cc665,.CC665,.hfe,.HFE,.scp,.SCP,.id,.ID" multiple class="sr-only" tabindex="-1">
       </div>
     </section>
   </div>
@@ -272,7 +274,7 @@
 
   <!-- Hardware Settings Modal -->
   <div id="modal-settings" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title" hidden>
-    <div class="modal-panel modal-md">
+    <div class="modal-panel modal-lg">
       <div class="modal-header">
         <div>
           <h2 id="modal-settings-title" class="modal-title">Compucorp 665 Hardware Settings</h2>
@@ -283,20 +285,20 @@
       <div class="modal-body settings-body">
         <div id="settings-restart-banner" class="restart-banner" hidden>
           <div class="restart-banner-text">
-            <strong>Restart required:</strong> Hardware configuration changes (paged memory boards, mains frequency, or experimental board mods) take effect on Hard Restart.
+            <strong>Restart required:</strong> Hardware configuration changes take effect on Hard Restart.
           </div>
           <button id="btn-settings-restart-now" type="button" class="btn btn-primary btn-sm">Hard Restart Now</button>
         </div>
 
-        <!-- Paged Memory Boards & Mains Frequency -->
-        <div class="settings-grid-2">
-          <fieldset class="settings-section">
-            <legend class="settings-legend">
-              <span>Paged Memory Boards</span>
-              <span class="tag-restart">On Restart</span>
-            </legend>
+        <!-- Memory Expansion -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Memory Expansion</span>
+            <span class="tag-restart">On Restart</span>
+          </legend>
+          <div class="settings-grid-2">
             <div class="settings-col">
-              <label for="settings-boards" class="settings-label">Add-on 64K Cards (-m 0..4)</label>
+              <label for="settings-boards" class="settings-label">Paged Memory Boards (-m 0..4)</label>
               <select id="settings-boards" class="input-select">
                 <option value="0">0 &mdash; 64K main only</option>
                 <option value="1">1 &mdash; 64K + 64K</option>
@@ -304,43 +306,187 @@
                 <option value="3">3 &mdash; 64K + 192K</option>
                 <option value="4">4 &mdash; 64K + 256K</option>
               </select>
-              <p class="settings-note">Omega requires &ge; 1 paged memory board (will not start with 0 boards).</p>
             </div>
-          </fieldset>
+            <div class="settings-col">
+              <label for="settings-mex-boards" class="settings-label">MEX Extended Boards (-e 0..3, ZEBRA 8)</label>
+              <select id="settings-mex-boards" class="input-select">
+                <option value="0" selected>0 &mdash; Disabled (classic paged RAM)</option>
+                <option value="1">1 &mdash; 1&times;256K MEX (F6h)</option>
+                <option value="2">2 &mdash; 2&times;256K MEX (F6h, F5h)</option>
+                <option value="3">3 &mdash; 3&times;256K MEX (F6h&ndash;F4h)</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-grid-2 settings-row-mt">
+            <div class="settings-col">
+              <label for="settings-mapper-port" class="settings-label">8K Memory Mapper Port (-q / -Q)</label>
+              <select id="settings-mapper-port" class="input-select">
+                <option value="0" selected>None</option>
+                <option value="245">Port F5h (245)</option>
+                <option value="244">Port F4h (244)</option>
+                <option value="119">Port 77h (119)</option>
+              </select>
+            </div>
+            <div class="settings-checks-col">
+              <label class="checkbox-label">
+                <input id="settings-lower-page" type="checkbox">
+                <span>Lower paged memory at 8000h (-l)</span>
+              </label>
+              <label class="checkbox-label">
+                <input id="settings-pm-readback" type="checkbox">
+                <span>Paged control latch readback (-E)</span>
+              </label>
+              <label class="checkbox-label">
+                <input id="settings-mapper-covers-rom" type="checkbox">
+                <span>8K mapper covers boot ROM (-Q)</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
 
+        <!-- Display & Video -->
+        <div class="settings-grid-2">
           <fieldset class="settings-section">
             <legend class="settings-legend">
-              <span>Mains Frequency</span>
+              <span>Mains &amp; Video Card</span>
               <span class="tag-restart">On Restart</span>
             </legend>
             <div class="segmented-group">
               <label class="segmented-option">
                 <input id="settings-mains-60" type="radio" name="settings-mains" value="60" checked>
-                <span>60 Hz (North America, default)</span>
+                <span>60 Hz (North America)</span>
               </label>
               <label class="segmented-option">
                 <input id="settings-mains-50" type="radio" name="settings-mains" value="50">
                 <span>50 Hz (-F 50)</span>
               </label>
             </div>
+            <label class="checkbox-label settings-row-mt">
+              <input id="settings-c60" type="checkbox">
+              <span>60-Line CRT Display Card (80&times;60, -X)</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="settings-section">
+            <legend class="settings-legend">
+              <span>Video Glyph PROM</span>
+              <span class="tag-immediate">Immediate</span>
+            </legend>
+            <div class="settings-col">
+              <label for="settings-video-prom" class="settings-label">Character Set (U21/U22)</label>
+              <select id="settings-video-prom" class="input-select">
+                <option value="us" selected>US Compucorp (8PKG04)</option>
+                <option value="metric85">Metric 85 (8KPG02)</option>
+                <option value="metric85g">Metric 85 + 2&times;3 Block Graphics</option>
+              </select>
+              <p class="settings-note">Switches high-bit glyphs live without restarting.</p>
+            </div>
           </fieldset>
         </div>
 
-        <!-- Experimental Board Mods -->
+        <!-- Board Mods & Keyboard -->
         <fieldset class="settings-section">
           <legend class="settings-legend">
-            <span>Experimental Board Mods</span>
-            <span class="tag-restart">On Restart</span>
+            <span>Board Mods &amp; Keyboard</span>
           </legend>
           <div class="settings-checks-grid">
             <label class="checkbox-label">
-              <input id="settings-rom-switch" type="checkbox">
-              <span>ROM-off switch on port 74h (-o)</span>
+              <input id="settings-pb5" type="checkbox">
+              <span>PB5 ROM-off mod (-5, for xcpmz80) <em class="tag-restart">Restart</em></span>
             </label>
             <label class="checkbox-label">
-              <input id="settings-lower-page" type="checkbox">
-              <span>Lower paged memory at 8000h (-l)</span>
+              <input id="settings-jt1" type="checkbox">
+              <span>Hold JT1 pin 6 low (-u, ROM off) <em class="tag-immediate">Live</em></span>
             </label>
+            <label class="checkbox-label">
+              <input id="settings-ctc3" type="checkbox">
+              <span>CTC 3 sector hole pulses (-3) <em class="tag-restart">Restart</em></span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-rom-switch" type="checkbox">
+              <span>Legacy ROM-off switch port 74h (-o) <em class="tag-restart">Restart</em></span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-xcpm-keys" type="checkbox">
+              <span>xcpmz80 keyboard layout (-Z) <em class="tag-immediate">Live</em></span>
+            </label>
+            <label class="checkbox-label">
+              <input id="settings-centronics" type="checkbox">
+              <span>Centronics parallel printer card (-n) <em class="tag-restart">Restart</em></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Hard Disks (Winchester -W & 691 Cartridge -J) -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Hard Disks &amp; Cartridge Storage</span>
+            <span class="tag-immediate">Live / On Restart</span>
+          </legend>
+          <div class="storage-group">
+            <div class="storage-row">
+              <span class="storage-label">Winchester (-W):</span>
+              <span id="settings-hd-status" class="hd-status is-empty">Not attached</span>
+              <div class="hd-actions">
+                <button id="btn-hd-insert" type="button" class="btn btn-xs">Mount .img</button>
+                <button id="btn-hd-blank" type="button" class="btn btn-xs">Blank 5 MB</button>
+                <button id="btn-hd-save" type="button" class="btn btn-xs" disabled>Save As</button>
+                <button id="btn-hd-eject" type="button" class="btn btn-xs" disabled>Eject</button>
+              </div>
+              <input id="input-hd-file" type="file" accept=".img,.IMG,.hd,.HD,.bin,.BIN" class="sr-only" tabindex="-1">
+            </div>
+            <div class="storage-row">
+              <span class="storage-label">691 Cartridge (-J):</span>
+              <span id="settings-j-status" class="hd-status is-empty">0 units attached</span>
+              <div class="hd-actions">
+                <button id="btn-j-insert" type="button" class="btn btn-xs">Add .img</button>
+                <button id="btn-j-blank" type="button" class="btn btn-xs">Add Blank</button>
+                <button id="btn-j-save" type="button" class="btn btn-xs" disabled>Save U0</button>
+                <button id="btn-j-eject" type="button" class="btn btn-xs" disabled>Eject All</button>
+              </div>
+              <input id="input-j-file" type="file" accept=".img,.IMG,.bin,.BIN" class="sr-only" tabindex="-1">
+            </div>
+            <div class="settings-grid-2">
+              <div class="settings-inline">
+                <label for="settings-j-port" class="settings-label">691 Port (-j):</label>
+                <select id="settings-j-port" class="input-select input-select-sm">
+                  <option value="16" selected>10h (default)</option>
+                  <option value="20">14h</option>
+                </select>
+              </div>
+              <label class="checkbox-label">
+                <input id="settings-j-wprot" type="checkbox">
+                <span>691 Cartridge write-protected (-R j)</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Timing & Calibration -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>Timing &amp; Hardware Calibration</span>
+            <span class="tag-restart">On Restart</span>
+          </legend>
+          <div class="settings-grid-3">
+            <div class="settings-col">
+              <label for="settings-drive-pct" class="settings-label">Drive Speed (-v %)</label>
+              <input id="settings-drive-pct" type="number" class="input-select" min="-10" max="10" step="1" value="0">
+            </div>
+            <div class="settings-col">
+              <label for="settings-ram-fill" class="settings-label">Power-On RAM Fill (-z)</label>
+              <select id="settings-ram-fill" class="input-select">
+                <option value="-1" selected>Random noise (default)</option>
+                <option value="0">00h (all zero)</option>
+                <option value="85">55h</option>
+                <option value="170">AAh</option>
+                <option value="255">FFh</option>
+              </select>
+            </div>
+            <div class="settings-col">
+              <label for="settings-prn-busy" class="settings-label">Slow Printer Busy (-U ms)</label>
+              <input id="settings-prn-busy" type="number" class="input-select" min="0" max="500" step="5" value="0">
+            </div>
           </div>
         </fieldset>
 
@@ -401,7 +547,11 @@
         </fieldset>
       </div>
       <div class="modal-footer">
-        <button id="btn-settings-reset" type="button" class="btn btn-subtle">Reset Defaults</button>
+        <div class="footer-left">
+          <button id="btn-settings-reset" type="button" class="btn btn-subtle">Reset Defaults</button>
+          <button id="btn-tool-screenshot" type="button" class="btn btn-xs" title="Save current CRT display as PNG">Save Screen PNG</button>
+          <button id="btn-tool-dump-mem" type="button" class="btn btn-xs" title="Download 64K RAM memory dump (-D)">Dump Memory</button>
+        </div>
         <button id="btn-settings-close" type="button" class="btn btn-primary">Done</button>
       </div>
     </div>
@@ -412,12 +562,16 @@
     <div class="modal-panel modal-lg">
       <div class="modal-header">
         <div>
-          <h2 id="modal-printer-title" class="modal-title">SIO Channel B Printer Output</h2>
+          <h2 id="modal-printer-title" class="modal-title">Printer Output</h2>
           <p id="printer-subtitle" class="modal-subtitle">0 bytes captured &middot; Diablo 630 Daisy-Wheel Decoder</p>
         </div>
         <div class="modal-header-actions">
+          <div class="printer-view-toggle" role="group" aria-label="Printer port source">
+            <button id="btn-printer-src-sio" type="button" class="btn btn-xs btn-toggle is-active" aria-pressed="true">SIO B</button>
+            <button id="btn-printer-src-cen" type="button" class="btn btn-xs btn-toggle" aria-pressed="false">Centronics (-n)</button>
+          </div>
           <div class="printer-view-toggle" role="group" aria-label="Printer output view mode">
-            <button id="btn-printer-view-rendered" type="button" class="btn btn-xs btn-toggle is-active" aria-pressed="true">Rendered (Diablo 630)</button>
+            <button id="btn-printer-view-rendered" type="button" class="btn btn-xs btn-toggle is-active" aria-pressed="true">Rendered</button>
             <button id="btn-printer-view-raw" type="button" class="btn btn-xs btn-toggle" aria-pressed="false">Raw Text/Hex</button>
           </div>
           <button id="btn-close-printer" type="button" class="btn-close" aria-label="Close Printer dialog">&times;</button>
@@ -468,33 +622,32 @@
     <div class="modal-panel modal-lg">
       <div class="modal-header">
         <div>
-          <h2 id="modal-about-title" class="modal-title">Compucorp 665 Web Emulator &amp; Omega Reference</h2>
-          <p class="modal-subtitle">3.79 MHz Z80 &middot; 64K + 4&times;64K Paged RAM &middot; 80&times;20 CRT &middot; Dual-Door 315 KB Floppies &middot; WebAssembly Core</p>
+          <h2 id="modal-about-title" class="modal-title">Compucorp 665 Web Emulator &amp; Reference</h2>
+          <p class="modal-subtitle">2.6624 MHz Z80 &middot; Paged/MEX RAM &middot; 80&times;20 / 80&times;60 CRT &middot; Floppies &amp; Flux (.img/.cc665/.hfe/.scp) &middot; Hard Disks</p>
         </div>
         <button id="btn-close-about" type="button" class="btn-close" aria-label="Close About dialog">&times;</button>
       </div>
       <div class="modal-body about-body">
         <p class="about-text">
-          Hardware-level emulator for the Compucorp 665 word processor running ZEBRA 7.04 and the Omega word processing system, compiled from the C reference core to WebAssembly.
-          Disk writes stay in browser memory; use <strong>Save As</strong> on any drive card to download modified <code>.img</code> images.
+          Hardware-level emulator for the Compucorp 665 running ZEBRA 7/8, Omega, standalone hardware diagnostics, and open-source <strong>xcpmz80</strong>, compiled from the C reference core to WebAssembly.
+          Supports classic paged memory (<code>-m</code>), ZEBRA 8 MEX boards (<code>-e</code>), 60-line CRT card (<code>-X</code>), US &amp; Metric 85 glyph PROMs, PB5/JT1 ROM-off mods, Winchester &amp; 691 hard disks, Centronics &amp; SIO B Diablo 630 printers, and raw/container/flux floppy images (<code>.img</code>, <code>.cc665</code>, <code>.hfe</code>, <code>.scp</code>).
+          Use <strong>Save As</strong> on any drive card to download <code>.img</code> (or <strong>Shift+Click</strong> for self-contained <code>.cc665</code>).
         </p>
 
         <div class="about-callout">
-          <strong>Omega Quick Start:</strong> Drive <code>A:</code> holds <code>boot.img</code> (Omega Boot Disk) and Drive <code>B:</code> holds <code>docs.img</code> (Document Disk).
-          Click <strong>Power</strong>. At real speed, booting takes <strong>~119 seconds</strong> (screen stays blank for the final minute while loading overlays); toggle <strong>Fast</strong> (<kbd>Alt</kbd>+<kbd>F</kbd> or <kbd>ScrollLock</kbd>) to boot in <strong>~1 second</strong>!
-          At the prompts, enter Time (<code>10/30 AM</code> or <kbd>Enter</kbd>) and Date (<code>11/24/26</code> or <kbd>Enter</kbd>) to open a blank Omega page.
+          <strong>Quick Start:</strong> Open <strong>Library</strong> to boot open-source <strong>xcpmz80</strong> (automatically enables PB5 ROM-off &amp; xcpmz80 keyboard layout), run the <strong>Hardware Diagnostics</strong> suite, or mount local Omega/ZEBRA <code>.img</code>/<code>.cc665</code>/<code>.hfe</code>/<code>.scp</code> images. Toggle <strong>Fast</strong> (<kbd>Alt</kbd>+<kbd>F</kbd> or <kbd>ScrollLock</kbd>) for instant disk booting.
         </div>
 
         <div class="shortcuts-grid">
           <div class="shortcut-group">
             <h3>Emulator Shortcuts (Alt)</h3>
             <dl class="shortcut-list">
-              <div><dt><kbd>Alt</kbd>+<kbd>1</kbd>..<kbd>4</kbd></dt><dd>Insert .img disk in Drive A:..D:</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>1</kbd>..<kbd>4</kbd></dt><dd>Insert disk (.img/.cc665/.hfe/.scp) in Drive A:..D:</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Soft Reset (Shift+Click Reset for Hard Restart)</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>B</kbd> / <kbd>F12</kbd></dt><dd>Monitor Break (ZEBRA V PD04 ROM monitor)</dd></div>
-              <div><dt><kbd>Alt</kbd>+<kbd>F</kbd> / <kbd>ScrollLock</kbd></dt><dd>Toggle Fast mode (119s boot &rarr; ~1s)</dd></div>
-              <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle on-screen Omega 20-key Keystrip</dd></div>
-              <div><dt><kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>Open SIO B Printer Output (Diablo 630)</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>F</kbd> / <kbd>ScrollLock</kbd></dt><dd>Toggle Fast mode (unthrottled CPU/disk)</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle on-screen keyboard</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>Open Printer Output (SIO B &amp; Centronics)</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>,</kbd></dt><dd>Open Hardware Settings</dd></div>
               <div><dt><kbd>Esc</kbd></dt><dd>Close modal (or 665 STOP 1Bh when running)</dd></div>
             </dl>
@@ -559,6 +712,6 @@
     </div>
   </div>
 
-  <script type="module" src="./ui.js?v=5"></script>
+  <script type="module" src="./ui.js?v=6"></script>
 </body>
 </html>

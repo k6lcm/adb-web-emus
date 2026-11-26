@@ -53,6 +53,11 @@
             <span class="btn-icon" aria-hidden="true">&#x2328;</span>
             <span>Keys</span>
           </button>
+          <button id="btn-printer" type="button" class="btn" title="View parallel printer output (Alt+P)">
+            <span class="btn-icon" aria-hidden="true">&#x1F5A8;</span>
+            <span>Printer</span>
+            <span id="printer-count-badge" class="pill-count" hidden>0 B</span>
+          </button>
         </div>
 
         <div class="control-divider" aria-hidden="true"></div>
@@ -314,14 +319,18 @@
               </label>
               <label class="segmented-option">
                 <input id="settings-mem-64" type="radio" name="settings-memory" value="64">
-                <span>64 KB (-m 64)</span>
+                <span>64 KB (-m 64, FFh)</span>
+              </label>
+              <label class="segmented-option">
+                <input id="settings-mem-64f" type="radio" name="settings-memory" value="64f">
+                <span>64 KB Floating (-m 64f)</span>
               </label>
             </div>
           </fieldset>
 
           <fieldset class="settings-section">
             <legend class="settings-legend">
-              <span>Hardware Timing</span>
+              <span>Hardware Timing &amp; Clock</span>
               <span class="tag-restart">On Restart</span>
             </legend>
             <div class="segmented-group">
@@ -334,8 +343,30 @@
                 <span>Quick (-q, no waits)</span>
               </label>
             </div>
+            <label class="checkbox-label settings-sub-check">
+              <input id="settings-time-set" type="checkbox">
+              <span>Hold Clock TIME SET button (-C) <em class="tag-inline tag-immediate">Immediate</em></span>
+            </label>
           </fieldset>
         </div>
+
+        <!-- SASI Hard Disk (-h) -->
+        <fieldset class="settings-section">
+          <legend class="settings-legend">
+            <span>SASI Hard Disk (-h, Boot DIP 7)</span>
+            <span class="tag-immediate">Immediate</span>
+          </legend>
+          <div class="hd-bar">
+            <span id="settings-hd-status" class="hd-status is-empty">No SASI hard disk attached</span>
+            <div class="hd-actions">
+              <button id="btn-hd-mount" type="button" class="btn btn-xs">Mount .img</button>
+              <button id="btn-hd-blank" type="button" class="btn btn-xs" title="Attach a blank 5 MB (10,240-block) SASI image">Blank 5 MB</button>
+              <button id="btn-hd-save" type="button" class="btn btn-xs" disabled>Save As</button>
+              <button id="btn-hd-eject" type="button" class="btn btn-xs" disabled>Eject</button>
+            </div>
+            <input id="input-hd-file" type="file" accept=".img,.IMG,.hd,.HD,.raw,.RAW" class="sr-only" tabindex="-1">
+          </div>
+        </fieldset>
 
         <!-- Drives Configuration -->
         <fieldset class="settings-section">
@@ -427,6 +458,33 @@
     </div>
   </div>
 
+  <!-- Parallel Printer Output Modal -->
+  <div id="modal-printer" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-printer-title" hidden>
+    <div class="modal-panel modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-printer-title" class="modal-title">Parallel Printer Output</h2>
+          <p id="printer-subtitle" class="modal-subtitle">0 bytes captured on Centronics parallel port (-l)</p>
+        </div>
+        <button id="btn-close-printer" type="button" class="btn-close" aria-label="Close Printer dialog">&times;</button>
+      </div>
+      <div class="modal-body printer-body">
+        <pre id="printer-output" class="printer-output" tabindex="0">Print from CP/M (Ctrl+P, PIP LST:=...) or BASIC (LPRINT) to capture parallel printer output.</pre>
+      </div>
+      <div class="modal-footer">
+        <div class="footer-left">
+          <button id="btn-printer-copy" type="button" class="btn">Copy Text</button>
+          <button id="btn-printer-dl-txt" type="button" class="btn">Download .txt</button>
+          <button id="btn-printer-dl-bin" type="button" class="btn">Download Raw .bin</button>
+        </div>
+        <div class="footer-right">
+          <button id="btn-printer-clear" type="button" class="btn btn-danger">Clear</button>
+          <button id="btn-printer-close" type="button" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Paste Text Modal -->
   <div id="modal-paste" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-paste-title" hidden>
     <div class="modal-panel modal-sm">
@@ -456,14 +514,14 @@
       <div class="modal-header">
         <div>
           <h2 id="modal-about-title" class="modal-title">Lobo MAX-80 Web Emulator</h2>
-          <p class="modal-subtitle">5 MHz Z80B &middot; 128K Banked RAM &middot; 1797 FDC &middot; WebAssembly Core</p>
+          <p class="modal-subtitle">5 MHz Z80B &middot; 128K Banked RAM &middot; 1797 FDC &middot; SASI HD &middot; WebAssembly Core</p>
         </div>
         <button id="btn-close-about" type="button" class="btn-close" aria-label="Close About dialog">&times;</button>
       </div>
       <div class="modal-body about-body">
         <p class="about-text">
           Cycle-accurate hardware emulator for the Lobo Systems MAX-80 computer, compiled directly from the C reference core to WebAssembly.
-          Disk writes stay in memory so archive images are never overwritten; use <strong>Save As</strong> on any drive to download modified <code>.imd</code> images.
+          Disk writes stay in memory so archive images are never overwritten; use <strong>Save As</strong> on any drive or SASI hard disk to download modified images.
         </p>
         <div class="shortcuts-grid">
           <div class="shortcut-group">
@@ -473,6 +531,7 @@
               <div><dt><kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Restart MAX-80</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>F</kbd></dt><dd>Toggle Fast mode</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle On-Screen Keyboard</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>Open Parallel Printer Output</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>,</kbd></dt><dd>Open Hardware Settings</dd></div>
               <div><dt><kbd>Esc</kbd></dt><dd>Close modal (or MAX-80 ESC when running)</dd></div>
             </dl>

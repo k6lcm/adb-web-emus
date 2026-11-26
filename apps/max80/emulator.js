@@ -27,9 +27,11 @@ const PHOSPHOR_RGB = {
 
 const DEFAULT_SETTINGS = {
 	dips: 2,
+	memMode: '128', // '128' | '64' | '64f'
 	mem64: false,
 	quick: false,
 	fast: false,
+	timeSet: false,
 	three: [false, false, false, false],
 	wprot: [false, false, false, false],
 	phosphor: 'white',
@@ -70,12 +72,28 @@ export function sniffImdKind(bytes) {
 	return 0;
 }
 
+function normalizeMemMode(s) {
+	if (s && (s.memMode === '64' || s.memMode === '64f' || s.memMode === '128')) {
+		return s.memMode;
+	}
+	return s && s.mem64 ? '64' : '128';
+}
+
+function memModeToInt(mode) {
+	if (mode === '64') return 1;
+	if (mode === '64f') return 2;
+	return 0;
+}
+
 function cloneSettings(s) {
+	const memMode = normalizeMemMode(s);
 	return {
 		dips: s.dips & 0xff,
-		mem64: Boolean(s.mem64),
+		memMode,
+		mem64: memMode !== '128',
 		quick: Boolean(s.quick),
 		fast: Boolean(s.fast),
+		timeSet: Boolean(s.timeSet),
 		three: Array.isArray(s.three) ? s.three.slice(0, 4).map(Boolean) : [false, false, false, false],
 		wprot: Array.isArray(s.wprot) ? s.wprot.slice(0, 4).map(Boolean) : [false, false, false, false],
 		phosphor: PHOSPHOR_RGB[s.phosphor] ? s.phosphor : 'white',
@@ -130,6 +148,16 @@ export class Max80Emulator {
 
 		this.pendingTextChunks = [];
 		this.diskGen = 0;
+		this.cachedPrinterBytes = new Uint8Array(0);
+		this.lastPrinterLen = 0;
+
+		this.hardDisk = {
+			loaded: false,
+			blank: false,
+			name: '',
+			bytes: null,
+			blocks: 0,
+		};
 
 		this.drives = [0, 1, 2, 3].map((d) => ({
 			drive: d,
@@ -237,8 +265,12 @@ export class Max80Emulator {
 			}
 		}
 
-		if (partial.mem64 !== undefined) {
+		if (partial.memMode !== undefined && ['128', '64', '64f'].includes(partial.memMode)) {
+			this.settings.memMode = partial.memMode;
+			this.settings.mem64 = partial.memMode !== '128';
+		} else if (partial.mem64 !== undefined) {
 			this.settings.mem64 = Boolean(partial.mem64);
+			this.settings.memMode = this.settings.mem64 ? '64' : '128';
 		}
 		if (partial.quick !== undefined) {
 			this.settings.quick = Boolean(partial.quick);
@@ -247,6 +279,12 @@ export class Max80Emulator {
 			this.settings.fast = Boolean(partial.fast);
 			if (this.poweredOn && this.mod) {
 				this.mod._web_set_fast(this.settings.fast ? 1 : 0);
+			}
+		}
+		if (partial.timeSet !== undefined) {
+			this.settings.timeSet = Boolean(partial.timeSet);
+			if (this.poweredOn && this.mod) {
+				this.mod._web_set_time_set(this.settings.timeSet ? 1 : 0);
 			}
 		}
 		if (Array.isArray(partial.three)) {
@@ -284,7 +322,7 @@ export class Max80Emulator {
 			if (
 				dipsChanged ||
 				this.settings.dips !== ls.dips ||
-				this.settings.mem64 !== ls.mem64 ||
+				this.settings.memMode !== ls.memMode ||
 				this.settings.quick !== ls.quick ||
 				threeDiff
 			) {
@@ -310,6 +348,8 @@ export class Max80Emulator {
 		this.mod = mod;
 		this.pendingTextChunks = [];
 		this.lastFrame = null;
+		this.cachedPrinterBytes = new Uint8Array(0);
+		this.lastPrinterLen = 0;
 
 		try {
 			mod.FS.mkdir('/disks');
@@ -330,7 +370,7 @@ export class Max80Emulator {
 				romPtr,
 				512,
 				this.settings.dips & 0xff,
-				this.settings.mem64 ? 1 : 0,
+				memModeToInt(this.settings.memMode),
 				this.settings.quick ? 1 : 0,
 				boolArrayToMask(this.settings.three),
 				boolArrayToMask(this.settings.wprot),
@@ -345,6 +385,17 @@ export class Max80Emulator {
 			const msg = 'Failed to initialize MAX-80 WASM core (_web_init returned -1).';
 			this.onError(msg);
 			throw new Error(msg);
+		}
+
+		mod._web_set_time_set(this.settings.timeSet ? 1 : 0);
+
+		// Mount staged SASI hard disk if attached
+		if (this.hardDisk.loaded) {
+			if (this.hardDisk.blank && this.hardDisk.blocks > 0) {
+				mod._web_hd_insert_blank(this.hardDisk.blocks);
+			} else if (this.hardDisk.bytes) {
+				this._mountStagedHardDisk();
+			}
 		}
 
 		// Load all active drive slots into the fresh WASM instance
@@ -687,6 +738,182 @@ export class Max80Emulator {
 		return ptr ? this.mod.UTF8ToString(ptr) : '';
 	}
 
+	// ---- SASI Hard Disk (-h) ----
+
+	getHardDiskState() {
+		return {
+			loaded: Boolean(this.hardDisk.loaded),
+			blank: Boolean(this.hardDisk.blank),
+			name: this.hardDisk.name || '',
+			blocks: this.hardDisk.blocks | 0,
+		};
+	}
+
+	insertHardDiskBytes(name, uint8Array) {
+		if (!uint8Array || !(uint8Array instanceof Uint8Array) || uint8Array.length === 0) {
+			return { ok: false, error: 'Empty or invalid hard disk image.' };
+		}
+		if (uint8Array.length % 512 !== 0) {
+			return {
+				ok: false,
+				error: `"${name || 'hard.img'}" size (${uint8Array.length} bytes) must be a multiple of 512 bytes.`,
+			};
+		}
+		const copy = new Uint8Array(uint8Array);
+		this.hardDisk = {
+			loaded: true,
+			blank: false,
+			name: name || 'hard.img',
+			bytes: copy,
+			blocks: copy.length / 512,
+		};
+		if (this.poweredOn && this.mod) {
+			if (!this._mountStagedHardDisk()) {
+				this.hardDisk = { loaded: false, blank: false, name: '', bytes: null, blocks: 0 };
+				this._notifyState();
+				return { ok: false, error: `Failed to mount SASI image "${name}".` };
+			}
+		}
+		this._notifyState();
+		return { ok: true, blocks: this.hardDisk.blocks };
+	}
+
+	insertBlankHardDisk(blocks = 10240) {
+		const n = Math.max(1, blocks | 0);
+		this.hardDisk = {
+			loaded: true,
+			blank: true,
+			name: `Blank ${(n * 512 / (1024 * 1024)).toFixed(1)} MB SASI`,
+			bytes: null,
+			blocks: n,
+		};
+		if (this.poweredOn && this.mod) {
+			const rc = this.mod._web_hd_insert_blank(n);
+			if (rc !== 0) {
+				this.hardDisk = { loaded: false, blank: false, name: '', bytes: null, blocks: 0 };
+				this._notifyState();
+				return { ok: false, error: 'Failed to allocate blank SASI hard disk.' };
+			}
+		}
+		this._notifyState();
+		return { ok: true, blocks: n };
+	}
+
+	ejectHardDisk() {
+		if (this.poweredOn && this.mod) {
+			this.mod._web_hd_eject();
+		}
+		this.hardDisk = { loaded: false, blank: false, name: '', bytes: null, blocks: 0 };
+		this._notifyState();
+		return { ok: true };
+	}
+
+	saveHardDiskBytes() {
+		if (!this.hardDisk.loaded) return null;
+		const downloadName =
+			this.hardDisk.name && !this.hardDisk.blank
+				? /\.(img|hd|raw)$/i.test(this.hardDisk.name)
+					? this.hardDisk.name
+					: `${this.hardDisk.name}.img`
+				: 'max80-sasi.img';
+
+		if (this.poweredOn && this.mod && this.mod._web_hd_loaded()) {
+			const tmpPath = '/tmp/save_hd.img';
+			const rc = this._withCString(tmpPath, (ptr) => this.mod._web_hd_save(ptr));
+			if (rc !== 0) {
+				this.onError('Could not save SASI hard disk image.');
+				return null;
+			}
+			let saved;
+			try {
+				saved = new Uint8Array(this.mod.FS.readFile(tmpPath));
+			} finally {
+				try {
+					this.mod.FS.unlink(tmpPath);
+				} catch (_e) {
+					// ignore
+				}
+			}
+			this.hardDisk.bytes = saved;
+			this.hardDisk.blank = false;
+			this.hardDisk.blocks = saved.length / 512;
+			if (!this.hardDisk.name || this.hardDisk.name.startsWith('Blank ')) {
+				this.hardDisk.name = downloadName;
+			}
+			this._notifyState();
+			return { name: downloadName, bytes: new Uint8Array(saved) };
+		}
+
+		if (this.hardDisk.bytes) {
+			return { name: downloadName, bytes: new Uint8Array(this.hardDisk.bytes) };
+		}
+		if (this.hardDisk.blank && this.hardDisk.blocks > 0) {
+			return { name: downloadName, bytes: new Uint8Array(this.hardDisk.blocks * 512) };
+		}
+		return null;
+	}
+
+	_mountStagedHardDisk() {
+		if (!this.mod || !this.hardDisk.bytes) return false;
+		const path = `/tmp/hd_${++this.diskGen}.img`;
+		this.mod.FS.writeFile(path, this.hardDisk.bytes);
+		const rc = this._withCString(path, (ptr) => this.mod._web_hd_insert(ptr));
+		try {
+			this.mod.FS.unlink(path);
+		} catch (_e) {
+			// ignore
+		}
+		return rc === 0;
+	}
+
+	// ---- Parallel Printer Capture (-l) ----
+
+	getPrinterByteCount() {
+		if (this.poweredOn && this.mod) {
+			return this.mod._web_printer_bytes() | 0;
+		}
+		return this.cachedPrinterBytes.length;
+	}
+
+	getPrinterBytes() {
+		if (this.poweredOn && this.mod) {
+			this.mod._web_printer_bytes();
+			try {
+				this.cachedPrinterBytes = new Uint8Array(this.mod.FS.readFile('/printer.bin'));
+			} catch (_e) {
+				this.cachedPrinterBytes = new Uint8Array(0);
+			}
+		}
+		return new Uint8Array(this.cachedPrinterBytes);
+	}
+
+	getPrinterText() {
+		const bytes = this.getPrinterBytes();
+		if (bytes.length === 0) return '';
+		let out = '';
+		for (let i = 0; i < bytes.length; i++) {
+			const c = bytes[i];
+			if (c === 0x0d) {
+				if (i + 1 < bytes.length && bytes[i + 1] === 0x0a) continue;
+				out += '\n';
+			} else if (c === 0x0a || c === 0x09 || (c >= 0x20 && c < 0x7f)) {
+				out += String.fromCharCode(c);
+			} else if (c === 0x0c) {
+				out += '\n--- PAGE BREAK ---\n';
+			}
+		}
+		return out;
+	}
+
+	clearPrinter() {
+		if (this.poweredOn && this.mod) {
+			this.mod._web_printer_clear();
+		}
+		this.cachedPrinterBytes = new Uint8Array(0);
+		this.lastPrinterLen = 0;
+		this._notifyState();
+	}
+
 	// ---- Private helpers ----
 
 	_withCString(str, fn) {
@@ -937,6 +1164,12 @@ export class Max80Emulator {
 				slot.kind = kindNow;
 				stateChanged = true;
 			}
+		}
+
+		const prnLen = this.mod._web_printer_bytes() | 0;
+		if (prnLen !== this.lastPrinterLen) {
+			this.lastPrinterLen = prnLen;
+			stateChanged = true;
 		}
 
 		if (postAudio && !this.muted && this.audioReady && this.audioNode) {

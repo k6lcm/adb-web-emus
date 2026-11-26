@@ -1223,6 +1223,83 @@ body {
   gap: 8px;
 }
 
+.settings-row-mt {
+  margin-top: 10px;
+}
+
+.settings-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-checks-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-select-sm {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.storage-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.storage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.storage-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 118px;
+}
+
+.hd-status {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--cc665-cyan);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hd-status.is-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.hd-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hw-flags {
+  color: var(--cc665-cyan);
+  font-weight: 600;
+}
+
 .settings-label {
   font-size: 13px;
   color: var(--text-primary);
@@ -1557,6 +1634,7 @@ code {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .settings-grid-2,
+  .settings-grid-3,
   .settings-checks-grid,
   .drives-wp-grid,
   .shortcuts-grid {
