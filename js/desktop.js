@@ -600,7 +600,7 @@ async function showAbout() {
 
 // last-updated.json is written by the public Pages workflow each time the live
 // site changes. It stores the update time in UTC; the About dialog shows it in
-// the visitor's own local time zone, to the second.
+// the visitor's own local time zone, in 24-hour time, to the second.
 function showLastUpdated() {
   const line = $('#about-updated');
   fetch('last-updated.json', { cache: 'no-cache' })
@@ -610,7 +610,7 @@ function showLastUpdated() {
       const when = new Date(u.updated);
       const local = when.toLocaleString(undefined, {
         day: 'numeric', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZoneName: 'short',
       });
       line.textContent = `Last updated ${local}`;
       line.title = `${u.updated.replace('T', ' ').replace('Z', ' UTC')}` + (u.revision ? ` · revision ${u.revision}` : '');
