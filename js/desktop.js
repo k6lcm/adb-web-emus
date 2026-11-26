@@ -599,17 +599,21 @@ async function showAbout() {
 }
 
 // last-updated.json is written by the public Pages workflow each time the live
-// site changes. It holds the GMT (UTC) date and time of that update.
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// site changes. It stores the update time in UTC; the About dialog shows it in
+// the visitor's own local time zone, to the second.
 function showLastUpdated() {
   const line = $('#about-updated');
   fetch('last-updated.json', { cache: 'no-cache' })
     .then((r) => (r.ok ? r.json() : null))
     .then((u) => {
-      const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})Z$/.exec(u?.updated ?? '');
-      if (!m) return;
-      line.textContent = `Last updated ${+m[3]} ${MONTHS[m[2] - 1]} ${m[1]}, ${m[4]} GMT`;
-      if (u.revision) line.title = `Revision ${u.revision}`;
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(u?.updated ?? '')) return;
+      const when = new Date(u.updated);
+      const local = when.toLocaleString(undefined, {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short',
+      });
+      line.textContent = `Last updated ${local}`;
+      line.title = `${u.updated.replace('T', ' ').replace('Z', ' UTC')}` + (u.revision ? ` · revision ${u.revision}` : '');
       line.hidden = false;
     })
     .catch(() => {});

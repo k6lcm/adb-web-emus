@@ -21,7 +21,7 @@ browser via IndexedDB copy-on-write sectors.
 ## Rule for changes
 
 Every change to this site is time-stamped. Each push to `main` runs the Pages
-workflow, which records the GMT date and time of the update, to the second,
-in `last-updated.json`; the desktop's About dialog shows it. Publish only
-through that workflow, keep its "Record the GMT date and time" step, and do
-not commit `last-updated.json` by hand.
+workflow, which records the date and time of the update, to the second and in
+UTC, in `last-updated.json`. The desktop's About dialog shows it in each
+visitor's local time zone. Publish only through that workflow, keep its
+"Record the date and time" step, and do not commit `last-updated.json` by hand.
