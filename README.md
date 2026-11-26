@@ -17,3 +17,11 @@ Agfa 9000PS downloads a 46 MiB compressed SCSI disk image (171 MiB uncompressed)
 on first launch and boots directly into Minix 2.0.4, CP/M-68K v1.6, or AGFA-MON
 with VERA 640x480 video and stereo PSG+PCM audio. Disk changes persist in your
 browser via IndexedDB copy-on-write sectors.
+
+## Rule for changes
+
+Every change to this site is time-stamped. Each push to `main` runs the Pages
+workflow, which records the GMT date and time of the update, to the second,
+in `last-updated.json`; the desktop's About dialog shows it. Publish only
+through that workflow, keep its "Record the GMT date and time" step, and do
+not commit `last-updated.json` by hand.

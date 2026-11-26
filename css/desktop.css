@@ -489,7 +489,8 @@ body.dock-autohidden #dock-reveal { display: block; }
 
 .about a { color: #78aeed; text-decoration: none; }
 .about a:hover { text-decoration: underline; }
-.about-foot { margin: 18px 0 0; }
+.about-foot { margin: 12px 0 0; }
+.about-updated { margin: 18px 0 0; color: var(--fg-dim); font-size: 12px; font-variant-numeric: tabular-nums; user-select: text; }
 
 /* ---------- Mobile ---------- */
 

@@ -594,7 +594,25 @@ async function showAbout() {
       })
       .catch(() => {});
   }
+  showLastUpdated();
   $('#about-dialog').showModal();
+}
+
+// last-updated.json is written by the public Pages workflow each time the live
+// site changes. It holds the GMT (UTC) date and time of that update.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function showLastUpdated() {
+  const line = $('#about-updated');
+  fetch('last-updated.json', { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((u) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})Z$/.exec(u?.updated ?? '');
+      if (!m) return;
+      line.textContent = `Last updated ${+m[3]} ${MONTHS[m[2] - 1]} ${m[1]}, ${m[4]} GMT`;
+      if (u.revision) line.title = `Revision ${u.revision}`;
+      line.hidden = false;
+    })
+    .catch(() => {});
 }
 
 // ----------------------------------------------------------- clock + hash

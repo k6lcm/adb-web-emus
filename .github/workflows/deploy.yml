@@ -36,6 +36,14 @@ jobs:
           done
           exit $status
 
+      # Rule: every change that goes live is stamped with its GMT date and time
+      # to the second. The About dialog shows this file. Do not remove this step.
+      - name: Record the GMT date and time of this update
+        run: |
+          jq -n --arg updated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg revision "$GITHUB_SHA" \
+            '{updated: $updated, revision: $revision}' > last-updated.json
+          cat last-updated.json
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v4
