@@ -617,11 +617,9 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
   function focusNativeInput() {
     if (!nativeInput || !visible || mode !== 'native') return false;
     resetNativeBuffer();
-    try {
-      nativeInput.focus({ preventScroll: true });
-    } catch {
-      nativeInput.focus();
-    }
+    // Flush layout synchronously so iOS Safari opens the keyboard when un-hiding Device mode
+    void nativeInput.offsetWidth;
+    nativeInput.focus();
     placeNativeCaretAtEnd();
     return true;
   }

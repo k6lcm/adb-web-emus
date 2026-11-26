@@ -1,6 +1,6 @@
 import { Max80Emulator, BOOT_DEVICES } from './emulator.js';
 import { attachKeyboard } from './keyboard.js';
-import { createOnScreenKeyboard } from './osk.js';
+import { createOnScreenKeyboard } from './osk.js?v=2';
 
 const STORAGE_KEY = 'max80.web.settings.v1';
 const OSK_STORAGE_KEY = 'max80.web.osk.v1';

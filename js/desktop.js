@@ -148,7 +148,7 @@ function createWindow(app) {
     reload.setAttribute('aria-label', 'Reload video');
     el.classList.add('video-window');
   }
-  iframe.src = app.path;
+  iframe.src = app.video || app.path.includes('?') ? app.path : `${app.path}?v=2`;
 
   const saved = loadGeom(app.id);
   const w = {
@@ -205,9 +205,20 @@ function focusWindow(w) {
     updateHash();
   }
   // Give the emulator keyboard focus once the browser has finished its own
-  // mousedown focus handling.
+  // mousedown focus handling, without stealing focus from an active text input.
   requestAnimationFrame(() => {
     if (state.focused !== w || w.minimized) return;
+    try {
+      const innerActive = w.iframe.contentDocument?.activeElement;
+      if (
+        innerActive &&
+        (innerActive.tagName === 'INPUT' ||
+          innerActive.tagName === 'TEXTAREA' ||
+          innerActive.isContentEditable)
+      ) {
+        return;
+      }
+    } catch { /* cross-origin */ }
     if (document.activeElement !== w.iframe) {
       try { w.iframe.contentWindow.focus(); } catch { w.iframe.focus(); }
     }
