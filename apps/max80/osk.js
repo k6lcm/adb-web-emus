@@ -1,11 +1,15 @@
 /*
- * On-Screen Keyboard & Arrow Pad for the Lobo MAX-80 Web Emulator.
+ * On-Screen Keyboard, Arrow Pad & Native Device Keyboard Bridge for the
+ * Lobo MAX-80 Web Emulator.
  *
  * Features:
  * - Full QWERTY layout + dedicated inverted-T arrow keys + MAX-80 special keys
  *   (ESC, BREAK, F1..F4, TAB, CTRL, SHIFT/Shift Lock).
  * - Compact "Pad" mode with jumbo thumb-friendly inverted-T arrows and action
  *   keys (SPACE, ENTER, BKSP, CTRL+C) for games and LDV Desktop on phones.
+ * - "Device" (native) mode using the built-in iOS / Android soft keyboard
+ *   paired with a compact MAX-80 accessory bar (ESC, BRK, F1..F4, TAB, CTRL,
+ *   and inline arrow keys) that stays open without dismissing the keyboard.
  * - Multi-touch pointer support: hold an arrow key with one thumb while tapping
  *   SPACE/ENTER with the other. Uses emulator.keyHold(slot, ch) on slots
  *   200..255 (disjoint from physical keyboard slots 0..199 in keyboard.js),
@@ -27,6 +31,38 @@ import {
 const OSK_SLOT_BASE = 200;
 const OSK_SLOT_COUNT = 56; // slots 200..255
 const SHIFT_DOUBLE_TAP_MS = 450;
+const NATIVE_SENTINEL = '\u200B';
+
+const SMART_CHAR_MAP = {
+  '\u2018': "'",
+  '\u2019': "'",
+  '\u201a': "'",
+  '\u201b': "'",
+  '\u201c': '"',
+  '\u201d': '"',
+  '\u201e': '"',
+  '\u201f': '"',
+  '\u2013': '-',
+  '\u2014': '--',
+  '\u2026': '...',
+  '\u00a0': ' ',
+  '\u00b4': "'",
+  '\u02dc': '~'
+};
+
+const NATIVE_SPECIAL_KEYS = {
+  Escape: 0x1b,
+  Tab: 0x09,
+  ArrowUp: K_UP,
+  ArrowDown: K_DOWN,
+  ArrowLeft: K_LEFT,
+  ArrowRight: K_RIGHT,
+  F1: K_F1,
+  F2: K_F2,
+  F3: K_F3,
+  F4: K_F4,
+  Pause: K_BREAK
+};
 
 const TOOLBAR_KEYS = [
   { label: 'ESC', code: 0x1b, title: 'Escape' },
@@ -103,6 +139,22 @@ const QWERTY_ROWS = [
   ]
 ];
 
+function sanitizeMode(raw) {
+  if (raw === 'pad' || raw === 'native') return raw;
+  return 'full';
+}
+
+function normalizeNativeText(str) {
+  const unified = String(str || '').replace(/\r\n/g, '\r').replace(/\n/g, '\r');
+  let out = '';
+  for (let i = 0; i < unified.length; i++) {
+    const ch = unified[i];
+    if (ch === NATIVE_SENTINEL) continue;
+    out += SMART_CHAR_MAP[ch] !== undefined ? SMART_CHAR_MAP[ch] : ch;
+  }
+  return out;
+}
+
 export function createOnScreenKeyboard(container, emulator, opts = {}) {
   const onVisibilityChange =
     typeof opts.onVisibilityChange === 'function' ? opts.onVisibilityChange : () => {};
@@ -112,7 +164,7 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
     typeof opts.onPowerNeeded === 'function' ? opts.onPowerNeeded : () => {};
 
   let visible = false;
-  let mode = opts.initialMode === 'pad' ? 'pad' : 'full';
+  let mode = sanitizeMode(opts.initialMode);
   let shiftState = 'off'; // 'off' | 'oneshot' | 'locked'
   let ctrlState = 'off';  // 'off' | 'oneshot'
   let lastShiftTap = 0;
@@ -129,8 +181,20 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
 
   let bodyFullEl = null;
   let bodyPadEl = null;
+  let bodyNativeEl = null;
   let btnModeFull = null;
   let btnModePad = null;
+  let btnModeNative = null;
+
+  // Native iOS / Android keyboard bridge state
+  let nativeInputWrap = null;
+  let nativeInput = null;
+  let nativeLabelEl = null;
+  let nativeDismissBtn = null;
+  let nativeOpenHintEl = null;
+  let nativeFocused = false;
+  let nativeComposing = false;
+  let nativeLastSent = '';
 
   function allocSlot() {
     for (let i = 0; i < OSK_SLOT_COUNT; i++) {
@@ -155,6 +219,37 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
 
   function isCtrlActive() {
     return ctrlState !== 'off' || heldMods.ctrl > 0;
+  }
+
+  function ensurePoweredForInput() {
+    if (!emulator || typeof emulator.isPoweredOn !== 'function' || !emulator.isPoweredOn()) {
+      if (!powerHintShown) {
+        powerHintShown = true;
+        onPowerNeeded();
+      }
+      return false;
+    }
+    powerHintShown = false;
+    return true;
+  }
+
+  function refreshNativeStatusUI() {
+    if (!nativeInputWrap || !nativeLabelEl) return;
+    const ctrl = isCtrlActive();
+    nativeInputWrap.classList.toggle('is-focused', nativeFocused);
+    nativeInputWrap.classList.toggle('is-ctrl-armed', ctrl);
+    if (nativeDismissBtn) nativeDismissBtn.hidden = !nativeFocused;
+    if (nativeOpenHintEl) nativeOpenHintEl.hidden = nativeFocused;
+
+    if (ctrl) {
+      nativeLabelEl.textContent = nativeFocused
+        ? 'CTRL armed — tap a letter (A–Z)'
+        : 'CTRL armed — tap here for device keyboard';
+    } else if (nativeFocused) {
+      nativeLabelEl.textContent = 'Device keyboard active — type here';
+    } else {
+      nativeLabelEl.textContent = 'Tap here for device keyboard';
+    }
   }
 
   function refreshKeyLegends() {
@@ -184,6 +279,8 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
       el.classList.toggle('is-active', ctrl);
       el.setAttribute('aria-pressed', String(ctrl));
     }
+
+    refreshNativeStatusUI();
   }
 
   function consumeOneShotModifiers() {
@@ -282,16 +379,11 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
 
     el.classList.add('is-pressed');
 
-    if (!emulator || typeof emulator.isPoweredOn !== 'function' || !emulator.isPoweredOn()) {
+    if (!ensurePoweredForInput()) {
       activePointers.set(pointerId, { slot: null, el, held: false, mod: null });
-      if (!powerHintShown) {
-        powerHintShown = true;
-        onPowerNeeded();
-      }
       return;
     }
 
-    powerHintShown = false;
     const { ch, forceQueue } = resolveChar(def);
     let slot = null;
     let held = false;
@@ -362,6 +454,289 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
     modUsedWhileHeld.ctrl = false;
   }
 
+  /* ---- Native iOS / Android Keyboard Input Bridge ---- */
+
+  function placeNativeCaretAtEnd() {
+    if (!nativeInput || typeof document === 'undefined' || document.activeElement !== nativeInput) {
+      return;
+    }
+    try {
+      const end = nativeInput.value.length;
+      nativeInput.setSelectionRange(end, end);
+    } catch {
+      // Ignore selection errors
+    }
+  }
+
+  function resetNativeBuffer() {
+    if (!nativeInput) return;
+    nativeLastSent = '';
+    if (nativeInput.value !== NATIVE_SENTINEL) {
+      nativeInput.value = NATIVE_SENTINEL;
+    }
+    placeNativeCaretAtEnd();
+  }
+
+  function sendNativeBackspace(count = 1) {
+    if (count <= 0) return;
+    if (!ensurePoweredForInput()) return;
+    if (typeof emulator.keyQueue !== 'function') return;
+    for (let i = 0; i < count; i++) {
+      emulator.keyQueue(0x08);
+    }
+    if (isCtrlActive()) {
+      consumeOneShotModifiers();
+    }
+  }
+
+  function sendNativeText(rawText) {
+    const normalized = normalizeNativeText(rawText);
+    if (!normalized) return { sentCtrl: false };
+    if (!ensurePoweredForInput()) return { sentCtrl: false };
+
+    // Large clipboard paste into native input: stream safely via pasteText
+    if (!isCtrlActive() && normalized.length > 32 && typeof emulator.pasteText === 'function') {
+      let ascii = '';
+      for (let i = 0; i < normalized.length; i++) {
+        const c = normalized.charCodeAt(i);
+        if (c === 0x0d || c === 0x09 || (c >= 0x20 && c <= 0x7e)) {
+          ascii += normalized[i];
+        }
+      }
+      if (ascii) {
+        emulator.pasteText(ascii);
+      }
+      return { sentCtrl: false };
+    }
+
+    if (typeof emulator.keyQueue !== 'function') return { sentCtrl: false };
+
+    let sentCtrl = false;
+    for (let i = 0; i < normalized.length; i++) {
+      const chStr = normalized[i];
+      if (isCtrlActive()) {
+        const lower = chStr.toLowerCase();
+        const lowerCode = lower.charCodeAt(0);
+        if (lowerCode >= 97 && lowerCode <= 122) {
+          emulator.keyQueue(lowerCode - 96);
+          consumeOneShotModifiers();
+          sentCtrl = true;
+          continue;
+        }
+        if (chStr === '[') {
+          emulator.keyQueue(0x1b);
+          consumeOneShotModifiers();
+          sentCtrl = true;
+          continue;
+        }
+        consumeOneShotModifiers();
+      }
+
+      const code = chStr.charCodeAt(0);
+      if (
+        code === 0x0d ||
+        code === 0x09 ||
+        code === 0x08 ||
+        code === 0x1b ||
+        (code >= 0x20 && code <= 0x7e)
+      ) {
+        emulator.keyQueue(code);
+      }
+    }
+    return { sentCtrl };
+  }
+
+  function syncNativeInput(isComposing) {
+    if (!nativeInput) return;
+    const raw = nativeInput.value;
+
+    // Sentinel deleted: user tapped Backspace on an empty buffer or replaced all
+    if (!raw.startsWith(NATIVE_SENTINEL)) {
+      const cleaned = raw.split(NATIVE_SENTINEL).join('');
+      if (cleaned.length === 0) {
+        const delCount = Math.max(1, nativeLastSent.length);
+        sendNativeBackspace(delCount);
+        nativeLastSent = '';
+        if (!isComposing) {
+          resetNativeBuffer();
+        }
+        return;
+      }
+
+      let p = 0;
+      const minLen = Math.min(nativeLastSent.length, cleaned.length);
+      while (p < minLen && nativeLastSent[p] === cleaned[p]) p++;
+      const toDelete = nativeLastSent.length - p;
+      const toAdd = cleaned.slice(p);
+      if (toDelete > 0) sendNativeBackspace(toDelete);
+      const res = toAdd.length > 0 ? sendNativeText(toAdd) : { sentCtrl: false };
+      nativeLastSent = cleaned;
+      if (!isComposing || res.sentCtrl) {
+        nativeComposing = false;
+        resetNativeBuffer();
+      }
+      return;
+    }
+
+    const current = raw.slice(NATIVE_SENTINEL.length);
+    let p = 0;
+    const minLen = Math.min(nativeLastSent.length, current.length);
+    while (p < minLen && nativeLastSent[p] === current[p]) p++;
+
+    const toDelete = nativeLastSent.length - p;
+    const toAdd = current.slice(p);
+
+    if (toDelete > 0) {
+      sendNativeBackspace(toDelete);
+    }
+    const res = toAdd.length > 0 ? sendNativeText(toAdd) : { sentCtrl: false };
+    nativeLastSent = current;
+
+    if (!isComposing || res.sentCtrl) {
+      if (res.sentCtrl) nativeComposing = false;
+      resetNativeBuffer();
+    }
+  }
+
+  function syncVisualViewport() {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    const shell = document.getElementById('app-shell');
+    const vv = window.visualViewport;
+    if (!shell || !vv) return;
+
+    const kbOpen = nativeFocused && vv.height > 150 && vv.height < window.innerHeight - 100;
+    if (kbOpen) {
+      document.documentElement.style.setProperty('--vvh', `${Math.round(vv.height)}px`);
+      shell.classList.add('has-native-kb');
+    } else {
+      document.documentElement.style.removeProperty('--vvh');
+      shell.classList.remove('has-native-kb');
+    }
+  }
+
+  function focusNativeInput() {
+    if (!nativeInput || !visible || mode !== 'native') return false;
+    resetNativeBuffer();
+    try {
+      nativeInput.focus({ preventScroll: true });
+    } catch {
+      nativeInput.focus();
+    }
+    placeNativeCaretAtEnd();
+    return true;
+  }
+
+  function blurNativeInput() {
+    if (!nativeInput) return;
+    if (typeof document !== 'undefined' && document.activeElement === nativeInput) {
+      nativeInput.blur();
+    }
+  }
+
+  function wireNativeInputEvents(inputEl) {
+    inputEl.value = NATIVE_SENTINEL;
+
+    inputEl.addEventListener('focus', () => {
+      nativeFocused = true;
+      nativeComposing = false;
+      resetNativeBuffer();
+      refreshNativeStatusUI();
+      syncVisualViewport();
+    });
+
+    inputEl.addEventListener('blur', () => {
+      nativeFocused = false;
+      nativeComposing = false;
+      nativeLastSent = '';
+      if (inputEl.value !== NATIVE_SENTINEL) {
+        inputEl.value = NATIVE_SENTINEL;
+      }
+      refreshNativeStatusUI();
+      syncVisualViewport();
+    });
+
+    inputEl.addEventListener('click', () => {
+      placeNativeCaretAtEnd();
+    });
+
+    inputEl.addEventListener('compositionstart', () => {
+      nativeComposing = true;
+    });
+
+    inputEl.addEventListener('compositionend', () => {
+      nativeComposing = false;
+      syncNativeInput(false);
+    });
+
+    inputEl.addEventListener('beforeinput', (e) => {
+      if (
+        e.inputType === 'deleteContentBackward' &&
+        !nativeComposing &&
+        inputEl.selectionStart === 0 &&
+        inputEl.selectionEnd === 0
+      ) {
+        e.preventDefault();
+        sendNativeBackspace(1);
+        resetNativeBuffer();
+      }
+    });
+
+    inputEl.addEventListener('input', (e) => {
+      const composing = Boolean(nativeComposing || e.isComposing);
+      syncNativeInput(composing);
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+      // Leave Alt/Meta for UI and browser shortcuts
+      if (e.altKey || e.metaKey) return;
+
+      // Physical/Bluetooth Ctrl+A..Z and Ctrl+[
+      if (e.ctrlKey) {
+        const k = e.key;
+        if (k && k.length === 1) {
+          const lower = k.toLowerCase();
+          const code = lower.charCodeAt(0);
+          if (code >= 97 && code <= 122) {
+            e.preventDefault();
+            if (ensurePoweredForInput() && typeof emulator.keyQueue === 'function') {
+              emulator.keyQueue(code - 96);
+            }
+            return;
+          }
+          if (k === '[') {
+            e.preventDefault();
+            if (ensurePoweredForInput() && typeof emulator.keyQueue === 'function') {
+              emulator.keyQueue(0x1b);
+            }
+            return;
+          }
+        }
+      }
+
+      // Non-text special keys from physical/Bluetooth keyboard
+      const special = NATIVE_SPECIAL_KEYS[e.key] || NATIVE_SPECIAL_KEYS[e.code];
+      if (special) {
+        e.preventDefault();
+        if (ensurePoweredForInput() && typeof emulator.keyQueue === 'function') {
+          emulator.keyQueue(special);
+        }
+        return;
+      }
+
+      // Fallback Backspace if sentinel was already absent
+      if (
+        !nativeComposing &&
+        !e.isComposing &&
+        e.key === 'Backspace' &&
+        inputEl.value.length === 0
+      ) {
+        e.preventDefault();
+        sendNativeBackspace(1);
+        resetNativeBuffer();
+      }
+    });
+  }
+
   function createKeyButton(def, extraClass = '') {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -405,6 +780,8 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
       btn.textContent = def.label || '';
     }
 
+    // Prevent mouse focus stealing so tapping accessory keys keeps the native keyboard open
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
     btn.addEventListener('pointerdown', (e) => handleKeyDown(def, btn, e));
     const onUp = (e) => {
       e.preventDefault();
@@ -473,7 +850,7 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
     btnModeFull.type = 'button';
     btnModeFull.className = 'osk-ctrl-btn';
     btnModeFull.textContent = 'Full';
-    btnModeFull.title = 'Full QWERTY keyboard + Arrow keys';
+    btnModeFull.title = 'Full on-screen QWERTY keyboard + Arrow keys';
     btnModeFull.addEventListener('click', () => setMode('full'));
 
     btnModePad = document.createElement('button');
@@ -483,16 +860,24 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
     btnModePad.title = 'Compact Arrow Pad + Action keys';
     btnModePad.addEventListener('click', () => setMode('pad'));
 
+    btnModeNative = document.createElement('button');
+    btnModeNative.type = 'button';
+    btnModeNative.className = 'osk-ctrl-btn';
+    btnModeNative.textContent = 'Device';
+    btnModeNative.title = 'Use built-in iOS / Android device keyboard';
+    btnModeNative.addEventListener('click', () => setMode('native', { focusNative: true }));
+
     const btnHide = document.createElement('button');
     btnHide.type = 'button';
     btnHide.className = 'osk-ctrl-btn osk-ctrl-hide';
     btnHide.textContent = 'Hide';
-    btnHide.title = 'Hide on-screen keyboard (Alt+K)';
-    btnHide.setAttribute('aria-label', 'Hide on-screen keyboard');
+    btnHide.title = 'Hide keyboard bar (Alt+K)';
+    btnHide.setAttribute('aria-label', 'Hide keyboard bar');
     btnHide.addEventListener('click', () => setVisible(false));
 
     controls.appendChild(btnModeFull);
     controls.appendChild(btnModePad);
+    controls.appendChild(btnModeNative);
     controls.appendChild(btnHide);
 
     toolbar.appendChild(fnGroup);
@@ -562,44 +947,172 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
     bodyPadEl.appendChild(padRight);
     inner.appendChild(bodyPadEl);
 
+    // Device (Native iOS / Android) mode: CTRL + inline arrows + native keyboard input bridge
+    bodyNativeEl = document.createElement('div');
+    bodyNativeEl.className = 'osk-body-native';
+
+    const nativeControls = document.createElement('div');
+    nativeControls.className = 'osk-native-controls';
+
+    const nativeCtrlBtn = createKeyButton(
+      {
+        mod: 'ctrl',
+        label: 'CTRL',
+        cls: 'osk-key-mod',
+        title: 'Arm Ctrl for next key typed on device keyboard'
+      },
+      'osk-native-ctrl'
+    );
+    nativeControls.appendChild(nativeCtrlBtn);
+
+    const nativeArrows = document.createElement('div');
+    nativeArrows.className = 'osk-native-arrows';
+    nativeArrows.setAttribute('role', 'group');
+    nativeArrows.setAttribute('aria-label', 'MAX-80 Arrow keys');
+    nativeArrows.appendChild(
+      createKeyButton(
+        { label: '\u25C0', code: K_LEFT, title: 'Arrow Left', ariaLabel: 'Arrow Left' },
+        'osk-key-arrow osk-native-arrow'
+      )
+    );
+    nativeArrows.appendChild(
+      createKeyButton(
+        { label: '\u25B2', code: K_UP, title: 'Arrow Up', ariaLabel: 'Arrow Up' },
+        'osk-key-arrow osk-native-arrow'
+      )
+    );
+    nativeArrows.appendChild(
+      createKeyButton(
+        { label: '\u25BC', code: K_DOWN, title: 'Arrow Down', ariaLabel: 'Arrow Down' },
+        'osk-key-arrow osk-native-arrow'
+      )
+    );
+    nativeArrows.appendChild(
+      createKeyButton(
+        { label: '\u25B6', code: K_RIGHT, title: 'Arrow Right', ariaLabel: 'Arrow Right' },
+        'osk-key-arrow osk-native-arrow'
+      )
+    );
+    nativeControls.appendChild(nativeArrows);
+
+    nativeInputWrap = document.createElement('div');
+    nativeInputWrap.className = 'osk-native-input-wrap';
+
+    nativeInput = document.createElement('textarea');
+    nativeInput.className = 'osk-native-input';
+    nativeInput.rows = 1;
+    nativeInput.setAttribute('autocomplete', 'off');
+    nativeInput.setAttribute('autocorrect', 'off');
+    nativeInput.setAttribute('autocapitalize', 'none');
+    nativeInput.setAttribute('spellcheck', 'false');
+    nativeInput.setAttribute('inputmode', 'text');
+    nativeInput.setAttribute('enterkeyhint', 'send');
+    nativeInput.setAttribute('data-gramm', 'false');
+    nativeInput.setAttribute('aria-label', 'Device keyboard input for MAX-80');
+    wireNativeInputEvents(nativeInput);
+
+    const statusOverlay = document.createElement('div');
+    statusOverlay.className = 'osk-native-status';
+    statusOverlay.setAttribute('aria-hidden', 'true');
+
+    const statusDot = document.createElement('span');
+    statusDot.className = 'osk-native-dot';
+
+    nativeLabelEl = document.createElement('span');
+    nativeLabelEl.className = 'osk-native-label';
+    nativeLabelEl.textContent = 'Tap here for device keyboard';
+
+    statusOverlay.appendChild(statusDot);
+    statusOverlay.appendChild(nativeLabelEl);
+
+    nativeOpenHintEl = document.createElement('span');
+    nativeOpenHintEl.className = 'osk-native-hint';
+    nativeOpenHintEl.setAttribute('aria-hidden', 'true');
+    nativeOpenHintEl.textContent = 'Open';
+
+    nativeDismissBtn = document.createElement('button');
+    nativeDismissBtn.type = 'button';
+    nativeDismissBtn.tabIndex = -1;
+    nativeDismissBtn.className = 'osk-native-dismiss';
+    nativeDismissBtn.textContent = 'Done';
+    nativeDismissBtn.title = 'Dismiss device keyboard';
+    nativeDismissBtn.setAttribute('aria-label', 'Dismiss device keyboard');
+    nativeDismissBtn.hidden = true;
+    nativeDismissBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      blurNativeInput();
+    });
+
+    nativeInputWrap.appendChild(nativeInput);
+    nativeInputWrap.appendChild(statusOverlay);
+    nativeInputWrap.appendChild(nativeOpenHintEl);
+    nativeInputWrap.appendChild(nativeDismissBtn);
+
+    bodyNativeEl.appendChild(nativeControls);
+    bodyNativeEl.appendChild(nativeInputWrap);
+    inner.appendChild(bodyNativeEl);
+
     container.appendChild(inner);
   }
 
   function applyModeUI() {
+    const isFull = mode === 'full';
     const isPad = mode === 'pad';
-    if (bodyFullEl) bodyFullEl.hidden = isPad;
+    const isNative = mode === 'native';
+
+    if (bodyFullEl) bodyFullEl.hidden = !isFull;
     if (bodyPadEl) bodyPadEl.hidden = !isPad;
+    if (bodyNativeEl) bodyNativeEl.hidden = !isNative;
+
     if (btnModeFull) {
-      btnModeFull.classList.toggle('is-active', !isPad);
-      btnModeFull.setAttribute('aria-pressed', String(!isPad));
+      btnModeFull.classList.toggle('is-active', isFull);
+      btnModeFull.setAttribute('aria-pressed', String(isFull));
     }
     if (btnModePad) {
       btnModePad.classList.toggle('is-active', isPad);
       btnModePad.setAttribute('aria-pressed', String(isPad));
     }
+    if (btnModeNative) {
+      btnModeNative.classList.toggle('is-active', isNative);
+      btnModeNative.setAttribute('aria-pressed', String(isNative));
+    }
     container.dataset.mode = mode;
+    refreshNativeStatusUI();
   }
 
-  function setMode(nextMode) {
-    const clean = nextMode === 'pad' ? 'pad' : 'full';
+  function setMode(nextMode, { focusNative = false } = {}) {
+    const clean = sanitizeMode(nextMode);
+    if (clean !== 'native') {
+      blurNativeInput();
+    }
     if (clean === mode && bodyFullEl) {
       applyModeUI();
+      if (clean === 'native' && focusNative && visible) {
+        focusNativeInput();
+      }
       return;
     }
     releaseAll();
     mode = clean;
     applyModeUI();
     onModeChange(mode);
+    if (mode === 'native' && focusNative && visible) {
+      focusNativeInput();
+    }
   }
 
-  function setVisible(nextVisible) {
+  function setVisible(nextVisible, { focusNative = false } = {}) {
     const flag = Boolean(nextVisible);
     if (!flag) {
       releaseAll();
+      blurNativeInput();
     }
     visible = flag;
     container.hidden = !visible;
     onVisibilityChange(visible);
+    if (visible && mode === 'native' && focusNative) {
+      focusNativeInput();
+    }
   }
 
   function onWindowBlur() {
@@ -619,6 +1132,9 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
 
   if (typeof window !== 'undefined') {
     window.addEventListener('blur', onWindowBlur);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', syncVisualViewport);
+    }
   }
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onDocVisibility);
@@ -627,17 +1143,24 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
   return {
     setVisible,
     isVisible: () => visible,
-    toggleVisible: () => setVisible(!visible),
+    toggleVisible: (toggleOpts) => setVisible(!visible, toggleOpts),
     setMode,
     getMode: () => mode,
+    focusNativeInput,
+    blurNativeInput,
+    isNativeInputFocused: () => nativeFocused,
     releaseAll,
     resetPowerHint: () => {
       powerHintShown = false;
     },
     destroy() {
       releaseAll();
+      blurNativeInput();
       if (typeof window !== 'undefined') {
         window.removeEventListener('blur', onWindowBlur);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', syncVisualViewport);
+        }
       }
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', onDocVisibility);
@@ -645,3 +1168,4 @@ export function createOnScreenKeyboard(container, emulator, opts = {}) {
     }
   };
 }
+

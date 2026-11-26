@@ -82,6 +82,11 @@ function saveStoredSettings(settings) {
   }
 }
 
+function sanitizeOskMode(mode) {
+  if (mode === 'pad' || mode === 'native') return mode;
+  return 'full';
+}
+
 function loadOskPrefs() {
   try {
     const raw = window.localStorage.getItem(OSK_STORAGE_KEY);
@@ -89,7 +94,7 @@ function loadOskPrefs() {
     const parsed = JSON.parse(raw);
     return {
       visible: typeof parsed?.visible === 'boolean' ? parsed.visible : null,
-      mode: parsed?.mode === 'pad' ? 'pad' : 'full'
+      mode: sanitizeOskMode(parsed?.mode)
     };
   } catch {
     return { visible: null, mode: 'full' };
@@ -102,7 +107,7 @@ function saveOskPrefs(prefs) {
       OSK_STORAGE_KEY,
       JSON.stringify({
         visible: typeof prefs?.visible === 'boolean' ? prefs.visible : null,
-        mode: prefs?.mode === 'pad' ? 'pad' : 'full'
+        mode: sanitizeOskMode(prefs?.mode)
       })
     );
   } catch {
@@ -321,7 +326,10 @@ function isKeyboardBlocked() {
 function openModal(modalEl, focusEl = null) {
   if (!modalEl) return;
   try {
-    if (osk) osk.releaseAll();
+    if (osk) {
+      osk.releaseAll();
+      osk.blurNativeInput();
+    }
     emu.keyReleaseAll();
   } catch {
     // Ignore if emulator not initialized yet
@@ -1583,10 +1591,20 @@ function wireControls() {
   if (dom.btnOsk) {
     dom.btnOsk.addEventListener('click', () => {
       if (osk) {
-        osk.toggleVisible();
+        const opening = !osk.isVisible();
+        osk.setVisible(opening, { focusNative: opening });
       }
     });
   }
+
+  dom.screenContainer?.addEventListener('click', () => {
+    if (isAnyModalOpen()) return;
+    if (osk && osk.isVisible() && osk.getMode() === 'native') {
+      osk.focusNativeInput();
+    } else {
+      dom.screenContainer.focus();
+    }
+  });
 
   dom.btnMute.addEventListener('click', () => {
     handleToggleMute();
@@ -1726,7 +1744,8 @@ function wireControls() {
       } else if (key === 'k') {
         e.preventDefault();
         if (osk) {
-          osk.toggleVisible();
+          const opening = !osk.isVisible();
+          osk.setVisible(opening, { focusNative: opening });
         }
       } else if (key === 'p') {
         e.preventDefault();
