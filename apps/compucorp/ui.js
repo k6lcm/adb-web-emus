@@ -16,7 +16,7 @@ import {
 } from './emulator.js?v=6';
 import { attachKeyboard, OMEGA_KEYS, K_BREAK, K_RESET } from './keyboard.js';
 
-import { createOnScreenKeyboard } from './osk.js?v=6';
+import { createOnScreenKeyboard } from './osk.js?v=7';
 
 const STORAGE_KEY = 'cc665.web.settings.v1';
 const DRIVE_LETTERS = ['A:', 'B:', 'C:', 'D:'];
@@ -321,7 +321,17 @@ const osk = createOnScreenKeyboard(document.getElementById('osk-dock'), emu, {
   onPowerNeeded: () => showToast('Power on the Compucorp to type', 'info'),
   onToggleKeystrip: () => handleToggleKeystrip()
 });
-keysButton.addEventListener('click', () => osk.toggleVisible());
+keysButton.addEventListener('click', () => {
+  const opening = !osk.isVisible();
+  osk.setVisible(opening, { focusNative: opening });
+});
+if (dom.screenContainer) {
+  dom.screenContainer.addEventListener('click', () => {
+    if (osk.isVisible() && osk.getMode() === 'native' && !isAnyModalOpen()) {
+      osk.focusNativeInput();
+    }
+  });
+}
 const savedKeyboardVisibility = readKeyboard('visible');
 osk.setVisible(savedKeyboardVisibility === null
   ? matchMedia('(pointer: coarse)').matches || matchMedia('(hover: none)').matches || innerWidth <= 900
@@ -387,6 +397,7 @@ function isKeyboardBlocked() {
 function openModal(modalEl, focusEl = null) {
   if (!modalEl) return;
   osk.releaseAll();
+  osk.blurNativeInput();
   modalEl.hidden = false;
   if (focusEl && typeof focusEl.focus === 'function') {
     window.requestAnimationFrame(() => focusEl.focus());
@@ -2438,7 +2449,8 @@ function wireControls() {
         handleToggleFast();
       } else if (key === 'k' || code === 'KeyK') {
         e.preventDefault();
-        osk.toggleVisible();
+        const opening = !osk.isVisible();
+        osk.setVisible(opening, { focusNative: opening });
       } else if (key === 'p' || code === 'KeyP') {
         e.preventDefault();
         if (!dom.modalPrinter.hidden) {

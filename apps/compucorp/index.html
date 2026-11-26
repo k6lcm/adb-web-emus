@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compucorp 665 Emulator</title>
-  <link rel="stylesheet" href="./style.css?v=6">
+  <link rel="stylesheet" href="./style.css?v=7">
 </head>
 <body>
   <div id="app-shell" class="app-shell">
@@ -49,7 +49,7 @@
             <span>Library</span>
             <span id="library-count-badge" class="pill-count" hidden>0</span>
           </button>
-          <button id="btn-keys" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle keyboard (Alt+K)">Keys</button>
+          <button id="btn-keys" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle keyboard / Device keyboard (Alt+K)">Keys</button>
           <button id="btn-keystrip" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle Omega 20-key function keystrip">
             <span class="btn-icon" aria-hidden="true">&#x2328;</span>
             <span>Keystrip</span>
@@ -646,7 +646,7 @@
               <div><dt><kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Soft Reset (Shift+Click Reset for Hard Restart)</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>B</kbd> / <kbd>F12</kbd></dt><dd>Monitor Break (ZEBRA V PD04 ROM monitor)</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>F</kbd> / <kbd>ScrollLock</kbd></dt><dd>Toggle Fast mode (unthrottled CPU/disk)</dd></div>
-              <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle on-screen keyboard</dd></div>
+              <div><dt><kbd>Alt</kbd>+<kbd>K</kbd></dt><dd>Toggle keyboard / Device keyboard</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>Open Printer Output (SIO B &amp; Centronics)</dd></div>
               <div><dt><kbd>Alt</kbd>+<kbd>,</kbd></dt><dd>Open Hardware Settings</dd></div>
               <div><dt><kbd>Esc</kbd></dt><dd>Close modal (or 665 STOP 1Bh when running)</dd></div>
@@ -712,6 +712,6 @@
     </div>
   </div>
 
-  <script type="module" src="./ui.js?v=6"></script>
+  <script type="module" src="./ui.js?v=7"></script>
 </body>
 </html>

@@ -1,90 +1,188 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="xterm/css/xterm.css" />
-    <link rel="stylesheet" href="plexem.css" />
+    <link rel="stylesheet" href="plexem.css?v=2" />
     <title>Plexus P/20 emulator</title>
   </head>
   <body>
-    <div id="terminal"></div>
+    <div id="app-shell" class="app-shell">
+      <header class="topbar" role="banner">
+        <div class="topbar-brand">
+          <span class="brand-logo">P/20</span>
+          <span class="brand-title">Plexus P/20 System V</span>
+        </div>
+        <div class="topbar-actions">
+          <button id="btn-keys" type="button" class="btn btn-toggle" aria-pressed="false" title="Toggle keyboard / Device keyboard (Alt+K)">Keys</button>
+          <span class="topbar-links">
+            <a href="#" id="showfaq">Does not work?</a>
+            <span aria-hidden="true">&middot;</span>
+            <a href="#" id="showabout">About</a>
+          </span>
+        </div>
+      </header>
+
+      <main id="terminal-wrap" class="terminal-wrap">
+        <div id="terminal"></div>
+      </main>
+
+      <section id="osk-dock" class="osk-dock" aria-label="On-screen keyboard" hidden></section>
+    </div>
+
+    <dialog id="faq">
+      <p>
+        This is a pretty faithful Plexus system emulator. It runs more or less in real time, meaning things may take a while. If you get stuck, try the following:
+      </p>
+      <ul>
+        <li>The emulator needs to download a hard disk image before it runs. If all you see is a black screen, check if your browser is still loading.</li>
+        <li>If all you see is 'PLEXUS SELFTEST REV 3.3', the Plexus is running its selftest. This will take about 30 seconds, or you can abort it by typing a '!' character.</li>
+        <li>If you're at the 'PLEXUS PRIMARY BOOT REV 1.2' prompt, the Plexus is waiting for you to do something. Try pressing enter to boot Unix.</li>
+        <li>If you run 'init 2', you need to login. Try user 'root' with no password.</li>
+        <li>If you get weird colored blocks in the terminal, please allow using canvas image data for this site. There probably is an icon for that in the address bar.</li>
+        <li>Hard disk changes are saved to local storage in your browser. Changing computers or browsers will clear it. Your browser may also clear the storage when it's unused for a long time or your (physical) machine is running low on hard disk space.</li>
+      </ul>
+      <button id="closefaq" type="button" class="btn">Close</button>
+    </dialog>
+
+    <dialog id="about">
+      <p>
+        This is an emulator for a Plexus P/20 system, which is an Unix server from the '80's. It
+        runs SystemV Unix on a dual 68010 processor mainboard. Adrian Black
+        (from Adrian's Digital Basement) did some videos on the topic of getting one to work:
+        <a href="https://www.youtube.com/watch?v=iltZYXg5hZw">1</a>
+        <a href="https://www.youtube.com/watch?v=lCPZAYvk940">2</a>
+        <a href="https://www.youtube.com/watch?v=_IrxvDE6Fyo">3</a>
+        <a href="https://www.youtube.com/watch?v=Ve1SuuRkx_o">4</a>
+        <a href="https://www.youtube.com/watch?v=10b50ECWXLk">5</a>.
+      </p>
+      <p>
+        This emulator is written in C. While it can be ran as a native program, the version
+        you're looking at right now is compiled to webassembly using
+        <a href="https://emscripten.org/">Emscripten</a>. It uses
+        <a href="https://xtermjs.org/">xterm.js</a> for the fancy terminal, which is connected
+        to Emscripten via <a href="https://github.com/mame/xterm-pty">xterm-pty</a>.
+      </p>
+      <p>
+        Plexus emulator &copy; 2024 Sprite_tm and contributors. Licensed under the MIT license. <a href="https://github.com/Spritetm/plexus_20_emu">Source code</a> for this emulator is on Github.
+      </p>
+      <button id="closeabout" type="button" class="btn">Close</button>
+    </dialog>
+
     <script type="module">
       import './xterm/lib/xterm.js';
       import './xterm-pty/index.js';
       import initEmscripten from './plexem.mjs';
+      import { createOnScreenKeyboard } from './osk.js?v=2';
 
-      var xterm = new Terminal();
-      xterm.open(document.getElementById('terminal'));
+      const termEl = document.getElementById('terminal');
+      const termWrap = document.getElementById('terminal-wrap');
+      const keysButton = document.getElementById('btn-keys');
+      const oskDock = document.getElementById('osk-dock');
+      const about = document.getElementById('about');
+      const faq = document.getElementById('faq');
 
-      // Create master/slave objects
+      const xterm = new Terminal({
+        fontSize: window.innerWidth <= 640 ? 11 : 15
+      });
+      xterm.open(termEl);
+
+      // Create master/slave objects and connect to xterm.js
       const { master, slave } = openpty();
-
-      // Connect the master object to xterm.js
       xterm.loadAddon(master);
+
+      const syncXtermInputMode = () => {
+        if (!xterm.textarea) return;
+        if (osk.isVisible()) {
+          xterm.textarea.setAttribute('inputmode', 'none');
+        } else {
+          xterm.textarea.removeAttribute('inputmode');
+        }
+      };
+
+      const rememberKeyboard = (key, value) => {
+        try { localStorage.setItem('plexus.osk.' + key, value); } catch {}
+      };
+      const readKeyboard = (key) => {
+        try { return localStorage.getItem('plexus.osk.' + key); } catch { return null; }
+      };
+
+      const osk = createOnScreenKeyboard(
+        oskDock,
+        (str) => {
+          master.ldisc.writeFromLower(str);
+        },
+        {
+          initialMode: readKeyboard('mode'),
+          onModeChange: (mode) => {
+            rememberKeyboard('mode', mode);
+            syncXtermInputMode();
+          },
+          onVisibilityChange: (visible) => {
+            keysButton.setAttribute('aria-pressed', String(visible));
+            keysButton.classList.toggle('is-active', visible);
+            rememberKeyboard('visible', String(visible));
+            syncXtermInputMode();
+          }
+        }
+      );
+
+      keysButton.addEventListener('click', () => {
+        const opening = !osk.isVisible();
+        osk.setVisible(opening, { focusNative: opening });
+      });
+
+      termWrap.addEventListener('click', () => {
+        if (about.open || faq.open) return;
+        if (osk.isVisible() && osk.getMode() === 'native') {
+          const sel = window.getSelection ? String(window.getSelection()) : '';
+          if (!sel) {
+            osk.focusNativeInput();
+          }
+        }
+      });
+
+      const savedVisible = readKeyboard('visible');
+      osk.setVisible(
+        savedVisible === null
+          ? matchMedia('(pointer: coarse)').matches ||
+            matchMedia('(hover: none)').matches ||
+            innerWidth <= 900
+          : savedVisible === 'true'
+      );
+
+      window.addEventListener(
+        'keydown',
+        (e) => {
+          if (about.open || faq.open) return;
+          if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')) {
+            e.preventDefault();
+            const opening = !osk.isVisible();
+            osk.setVisible(opening, { focusNative: opening });
+          }
+        },
+        true
+      );
+
+      document.getElementById('showabout').addEventListener('click', (e) => {
+        e.preventDefault();
+        osk.releaseAll();
+        osk.blurNativeInput();
+        about.showModal();
+      });
+      document.getElementById('showfaq').addEventListener('click', (e) => {
+        e.preventDefault();
+        osk.releaseAll();
+        osk.blurNativeInput();
+        faq.showModal();
+      });
+      document.getElementById('closeabout').addEventListener('click', () => about.close());
+      document.getElementById('closefaq').addEventListener('click', () => faq.close());
 
       await initEmscripten({
         pty: slave
       });
     </script>
-	<script>
-		document.addEventListener("DOMContentLoaded", function(event) {
-			const showabout = document.getElementById("showabout");
-			const showfaq = document.getElementById("showfaq");
-			const closeabout = document.getElementById("closeabout");
-			const closefaq = document.getElementById("closefaq");
-			const about = document.getElementById("about");
-			const faq = document.getElementById("faq");
-
-			showabout.addEventListener("click", () => {
-				about.showModal();
-			});
-			showfaq.addEventListener("click", () => {
-				faq.showModal();
-			});
-			closeabout.addEventListener("click", () => {
-				about.close();
-			});
-			closefaq.addEventListener("click", () => {
-				faq.close();
-			});
-		});
-	</script>
-	<a href="#" id="showfaq">Does not work?</a> - <a href="#" id="showabout">About</a>
-	<dialog id="faq">
-		<p>
-		This is a pretty faithful Plexus system emulator. It runs more or less in real time, meaning things may take a while. If you get stuck, try the following:
-		</p>
-		<ul>
-		<li>The emulator needs to download a hard disk image before it runs. If all you see is a black screen, check if your browser is still loading.</li>
-		<li>If all you see is 'PLEXUS SELFTEST REV 3.3', the Plexus is running its selftest. This will take about 30 seconds, or you can abort it by typing a '!' character.</li>
-		<li>If you're at the 'PLEXUS PRIMARY BOOT REV 1.2' prompt, the Plexus is waiting for you to do something. Try pressing enter to boot Unix.</li>
-		<li>If you run 'init 2', you need to login. Try user 'root' with no password.</li>
-		<li>If you get weird colored blocks in the terminal, please allow using canvas image data for this site. There probably is an icon for that in the address bar.</li>
-		<li>Hard disk changes are saved to local storage in your browser. Changing computers or browsers will clear it. Your browser may also clear the storage when it's unused for a long time or your (physical) machine is running low on hard disk space.</li>
-		</ul>
-		<button id="closefaq">Close</button>
-	</dialog>
-	<dialog id="about">
-		<p>
-		This is an emulator for a Plexus P/20 system, which is an Unix server from the '80's. It
-		runs SystemV Unix on a dual 68010 processor mainboard. Adrian Black 
-		(from Adrian's Digital Basement) did some videos on the topic of getting one to work:
-		<a href="https://www.youtube.com/watch?v=iltZYXg5hZw">1</a>
-		<a href="https://www.youtube.com/watch?v=lCPZAYvk940">2</a>
-		<a href="https://www.youtube.com/watch?v=_IrxvDE6Fyo">3</a>
-		<a href="https://www.youtube.com/watch?v=Ve1SuuRkx_o">4</a>
-		<a href="https://www.youtube.com/watch?v=10b50ECWXLk">5</a>.
-		</p>
-		<p>
-		This emulator is written in C. While it can be ran as a native program, the version
-		you're looking at right now is compiled to webassembly using 
-		<a href="https://emscripten.org/">Emscripten</a>. It uses 
-		<a href="https://xtermjs.org/">xterm.js</a> for the fancy terminal, which is connected
-		to Emscripten via <a href="https://github.com/mame/xterm-pty">xterm-pty</a>.
-		</p>
-		<p>
-		Plexus emulator &copy; 2024 Sprite_tm and contributors. Licensed under the MIT license. <a href="https://github.com/Spritetm/plexus_20_emu">Source code</a> for this emulator is on Github.
-		</p>
-		<button id="closeabout">Close</button>
-	</dialog>
   </body>
 </html>

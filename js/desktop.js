@@ -148,7 +148,7 @@ function createWindow(app) {
     reload.setAttribute('aria-label', 'Reload video');
     el.classList.add('video-window');
   }
-  iframe.src = app.video || app.path.includes('?') ? app.path : `${app.path}?v=2`;
+  iframe.src = app.video || app.path.includes('?') ? app.path : `${app.path}?v=3`;
 
   const saved = loadGeom(app.id);
   const w = {
